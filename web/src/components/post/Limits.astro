@@ -1,0 +1,24 @@
+---
+// Usage: <Limits>…</Limits>
+---
+<aside class="limits" aria-label="Limits">
+  <div class="limits__title">Limits</div>
+  <div class="limits__body"><slot /></div>
+</aside>
+
+<style is:global>
+  .limits {
+    --limits-color: oklch(0.48 0.11 65);
+    margin: var(--spacing-4) 0;
+    padding: 12px 18px;
+    border-left: 4px solid var(--limits-color);
+    background: var(--surface-bg);
+    color: var(--text-color);
+  }
+  [data-theme="dark"] .limits { --limits-color: oklch(0.78 0.12 75); }
+  .limits__title { color: var(--limits-color); font-weight: 700; margin-bottom: 6px; }
+  .limits__body > :first-child { margin-top: 0; }
+  .limits__body > :last-child { margin-bottom: 0; }
+  .limits__body ul { padding-left: 1.25em; }
+  .limits__body li + li { margin-top: 10px; }
+</style>

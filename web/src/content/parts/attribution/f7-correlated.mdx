@@ -1,0 +1,23 @@
+import HtmlEmbed from '../../../components/HtmlEmbed.astro';
+import WhatToNotice from '../../../components/post/WhatToNotice.astro';
+
+Move the slider: as the two indicators become more similar, the regression's
+coefficients swing from one data set to the next, while Shapley keeps giving
+each about half.
+
+<HtmlEmbed src="d3-f7-correlated.html" data="f7-correlated.json" title="Two correlated indicators: the regression cannot separate them; Shapley splits them evenly" desc="The figure uses 192 simulated data sets, each with 768 observations of eight indicators, and follows the first two, A and B, whose true coefficients are both 1. The slider sets the correlation between A and B, and within two other pairs of indicators; the last two indicators are independent." />
+
+<WhatToNotice>
+
+When the two indicators are very similar, A's coefficient runs from about −0.9
+to 2.5 across the data sets. In 11 of them, one of the two coefficients comes
+out negative. Their sum stays near 2: the data fix what the pair does together,
+not how to divide it between them.
+
+Shapley gives A between 48% and 51% of what the pair explains. It averages A's
+contribution over every order in which the indicators can enter the
+regression, and A and B play symmetric roles
+[@lipovetskyAnalysisRegressionGame2001]. When the indicators are unrelated,
+each one's part depends on its own fit and varies more.
+
+</WhatToNotice>

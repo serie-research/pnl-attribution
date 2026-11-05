@@ -1,0 +1,360 @@
+<div class="f1-brinson">
+<p class="note">Synthetic, single-period returns. Each weight slider sets segment A; segment B gets the remainder.</p>
+<div class="controls"></div>
+<p><label>Allocation convention <select class="convention"><option value="1985">1985: relative to total benchmark</option><option value="1986">1986: segment benchmark return</option></select></label></p>
+<p><label>Interaction convention <select class="interaction"><option value="separate">Interaction as a separate term</option><option value="selection">Interaction folded into selection</option></select></label></p>
+<div class="area-view">
+<h4>One segment as areas · weight × return, in basis points</h4>
+<p><label>Segment shown <select class="segment"><option value="0">A</option><option value="1">B</option></select></label></p>
+<div class="layout">
+<svg class="area" role="img" aria-label="Area diagram for one segment: weight on the horizontal axis, return in basis points on the vertical axis; each coloured area is one term of the decomposition."></svg>
+<div class="notes" aria-live="polite"></div>
+</div>
+<p class="note">The outer rectangle is the portfolio in the segment, the grey area the benchmark. Hatched areas count negatively.</p>
+</div>
+<div class="bars">
+<h4>Segment A · terms in basis points</h4><svg class="segment-a" role="img" aria-label="Segment A allocation, selection and interaction in basis points"></svg>
+<h4>Segment B · terms in basis points</h4><svg class="segment-b" role="img" aria-label="Segment B allocation, selection and interaction in basis points"></svg>
+<h4>Total · terms in basis points</h4><svg class="total" role="img" aria-label="Total allocation, selection and interaction in basis points"></svg>
+</div>
+<p class="status" role="status" aria-live="polite"></p>
+<p class="note">Switching 1985 ↔ 1986 changes segment allocations; their sum is unchanged. Folding interaction into selection changes those totals by convention.</p>
+</div>
+<style>
+.f1-brinson { padding:16px; border:1px solid var(--border-color); border-radius:10px; background:var(--surface-bg); color:var(--text-color); font:14px/1.5 var(--default-font-family, sans-serif);
+  --ink: var(--text-color); --w-bench: color-mix(in srgb, var(--text-color) 7%, var(--surface-bg)); --w-rule: var(--surface-bg);
+  --w-pale: color-mix(in srgb, var(--info-color) 35%, var(--surface-bg)); --w-alloc: color-mix(in srgb, var(--info-color) 75%, var(--surface-bg));
+  --w-sel: color-mix(in srgb, var(--primary-color) 70%, var(--surface-bg)); --w-int: color-mix(in srgb, var(--success-color) 70%, var(--surface-bg)); }
+[data-theme="dark"] .f1-brinson { --w-bench: color-mix(in srgb, var(--text-color) 12%, var(--surface-bg)); --w-pale: color-mix(in srgb, var(--info-color) 45%, var(--surface-bg)); }
+.f1-brinson .controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr)); gap:10px 24px; }
+.f1-brinson label { display:block; } .f1-brinson input[type=range] { display:block; width:100%; accent-color:var(--info-color); }
+.f1-brinson select,.f1-brinson button { max-width:100%; color:var(--text-color); background:var(--page-bg); border:1px solid var(--border-color); border-radius:4px; padding:6px; font:inherit; }
+.f1-brinson output { font-weight:600; font-variant-numeric:tabular-nums; } .f1-brinson svg { display:block; width:100%; height:auto; overflow:visible; }
+.f1-brinson .bars svg text { fill:var(--text-color); font:14px sans-serif; } .f1-brinson h4 { margin:18px 0 6px; font-size:15px; }
+.f1-brinson .status { font-variant-numeric:tabular-nums; } .f1-brinson .note { color:var(--muted-color); }
+.f1-brinson .error { color:var(--danger-color); }
+.f1-brinson .area-view { container-type: inline-size; margin-top: 18px; padding-top: 4px; border-top: 1px solid var(--border-color); }
+.f1-brinson .area-view .note { margin: 6px 0 0; font-size: 13px; }
+.f1-brinson .bars { margin-top: 6px; border-top: 1px solid var(--border-color); }
+.f1-brinson .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 20px; align-items: center; }
+@container (min-width: 600px) { .f1-brinson .layout { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); } }
+.f1-brinson svg.area text { font-family: var(--default-font-family, sans-serif); fill: var(--ink); white-space: pre; }
+.f1-brinson .notes p { margin: 0 0 8px; font-size: 14px; line-height: 1.45; }
+.f1-brinson .notes .term { border-radius: 3px; padding: 0 2px; margin: 0 -2px; cursor: default; font-variant-numeric: tabular-nums; }
+.f1-brinson .notes .term.hl { background: color-mix(in srgb, var(--info-color) 22%, transparent); }
+.f1-brinson .ss { position: relative; display: inline-block; width: .5em; height: 1em; margin-right: 1px; }
+.f1-brinson .nw { white-space: nowrap; }
+.f1-brinson .ss > span { position: absolute; left: 1px; font-size: .72em; line-height: 1; }
+.f1-brinson .ss > span:first-child { top: -.3em; } .f1-brinson .ss > span:last-child { top: .78em; }
+.f1-brinson sub, .f1-brinson sup { font-size: 0.72em; line-height: 0; }
+.f1-brinson .region { transition: opacity .15s; }
+.f1-brinson .region:focus { outline: none; }
+.f1-brinson .region:focus-visible rect.area, .f1-brinson .region.hl rect.area { stroke: var(--ink); stroke-width: 2px; }
+.f1-brinson svg.dim .region:not(.hl) { opacity: .45; }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+
+  const box = root.querySelector('.f1-brinson');
+  const controls = box.querySelector('.controls');
+  const status = box.querySelector('.status');
+  const svgEl = box.querySelector('svg.area');
+  const notes = box.querySelector('.notes');
+  const uid = 'f1-' + Math.random().toString(36).slice(2, 8);
+  const state = {};
+  let defaults;
+  function slider(key, label, min, max, step, value, unit) {
+    state[key] = value;
+    const el = document.createElement('label');
+    const text = document.createElement('span'); text.textContent = label + ' ';
+    const out = document.createElement('output');
+    const input = document.createElement('input');
+    input.type='range'; input.min=min; input.max=max; input.step=step; input.value=value;
+    input.dataset.key=key; input.setAttribute('aria-label', label);
+    const update = () => { state[key]=Number(input.value); out.value=Number(input.value).toFixed(step < 1 ? 2 : 0) + unit; };
+    update(); input.addEventListener('input', () => { update(); box.dispatchEvent(new Event('figure-input')); });
+    el.append(text,out,input); controls.append(el);
+  }
+  function bars(selector, rows, unit, domain) {
+    const svg=d3.select(box.querySelector(selector));
+    const limit=domain || Math.max(1,...rows.map(r=>Math.abs(r.value)))*1.15;
+    const width=box.querySelector(selector).clientWidth;
+    const x=d3.scaleLinear().domain([-limit,limit]).range([105,width-100]);
+    svg.attr('viewBox',`0 0 ${width} ${rows.length*38+54}`);
+    svg.selectAll('*').remove();
+    svg.append('line').attr('x1',x(0)).attr('x2',x(0)).attr('y1',0).attr('y2',rows.length*38).attr('stroke','var(--muted-color)');
+    const g=svg.selectAll('g').data(rows).join('g').attr('transform',(_,i)=>`translate(0,${i*38})`);
+    g.append('text').attr('x',0).attr('y',22).text(d=>d.label);
+    g.append('rect').attr('x',d=>Math.min(x(0),x(d.value))).attr('y',5).attr('width',d=>Math.abs(x(d.value)-x(0))).attr('height',25).attr('fill',d=>d.color || 'var(--info-color)');
+    g.append('text').attr('x',width-4).attr('y',22).attr('text-anchor','end').text(d=>`${d.value.toFixed(2)}${unit}`);
+    svg.append('g').attr('transform',`translate(0,${rows.length*38})`).call(d3.axisBottom(x).ticks(3));
+    svg.append('text').attr('x',width/2).attr('y',rows.length*38+47).attr('text-anchor','middle').text(unit || 'Capital units');
+  }
+
+  // Rich SVG text with wrapping. Markup: **bold**, *italic*, _{sub}, ^{sup}, !{overline}, \n = line break.
+  const ctx = document.createElement('canvas').getContext('2d');
+  const family = () => getComputedStyle(svgEl).fontFamily || 'sans-serif';
+  function parse(str, bold) {
+    const out = []; let b = !!bold, i = false, buf = '', k = 0;
+    const push = (t, s = 0, o = false) => { if (t) out.push({ t, b, i, s, o }); };
+    while (k < str.length) {
+      if (str.startsWith('**', k)) { push(buf); buf = ''; b = !b; k += 2; }
+      else if (str[k] === '*') { push(buf); buf = ''; i = !i; k++; }
+      else if (str[k] === '!' && str[k + 1] === '{') { push(buf); buf = ''; const end = str.indexOf('}', k); push(str.slice(k + 2, end), 0, true); k = end + 1; }
+      else if ((str[k] === '_' || str[k] === '^') && str[k + 1] === '{') {
+        push(buf); buf = ''; const end = str.indexOf('}', k);
+        push(str.slice(k + 2, end), str[k] === '_' ? 1 : -1); k = end + 1;
+      } else { buf += str[k]; k++; }
+    }
+    push(buf); return out;
+  }
+  const fontOf = (r, size) => `${r.i ? 'italic ' : ''}${r.b ? 600 : 400} ${r.s ? size * 0.72 : size}px ${family()}`;
+  const measure = (r, size) => { ctx.font = fontOf(r, size); return ctx.measureText(r.t).width; };
+  function words(str, size, bold) {
+    const ws = [[]];
+    // A word may also break after a hyphen, a dash or a slash; the pieces are glued (no space).
+    for (const r of parse(str, bold)) r.t.split(' ').forEach((p, j) => {
+      if (j) ws.push([]);
+      p.split(/(?<=[-–\/])(?=.)/).forEach((q, k) => { if (k) { ws.push([]); ws.at(-1).glue = true; } if (q) ws.at(-1).push({ ...r, t: q }); });
+    });
+    return ws.filter(w => w.length).map(runs => {
+      let width = 0;
+      runs.forEach((r, j) => {
+        r.w = measure(r, size);
+        const prev = runs[j - 1];
+        if (r.s === -1 && prev && prev.s === 1) { r.dx = -prev.w; width += Math.max(0, r.w - prev.w); r.after = Math.max(0, prev.w - r.w); }
+        else width += r.w;
+      });
+      return { runs, width, glue: !!runs.glue };
+    });
+  }
+  function layout(str, maxW, size, bold) {
+    const lines = [];
+    for (const para of String(str).split('\n')) {
+      let line = null;
+      const space = measure({ t: ' ', b: false, i: false, s: 0 }, size);
+      // Glued pieces (a word split after a hyphen) break apart only when the whole word cannot fit on a line.
+      const chains = [];
+      for (const w of words(para, size, bold)) { if (w.glue && chains.length) chains.at(-1).push(w); else chains.push([w]); }
+      const add = w => {
+        const sp = w.glue ? 0 : space;
+        if (line && line.width + sp + w.width <= maxW) { line.words.push(w); line.width += sp + w.width; }
+        else { line = { words: [w], width: w.width }; lines.push(line); }
+      };
+      for (const chain of chains) {
+        const cw = d3.sum(chain, w => w.width);
+        if (chain.length > 1 && cw <= maxW && line && line.width + space + cw > maxW) line = null;
+        if (chain.length > 1 && cw <= maxW) {
+          if (line) { line.words.push(...chain); line.width += space + cw; } else { line = { words: chain, width: cw }; lines.push(line); }
+        } else chain.forEach(add);
+      }
+    }
+    return { lines, width: d3.max(lines, l => l.width) || 0 };
+  }
+  function draw(parent, str, { x, y, w = 1e4, size = 13, lh = size * 1.28, anchor = 'start', bold = false, fill = null, cls = '' }) {
+    const lay = layout(str, w, size, bold);
+    lay.lines.forEach((line, n) => {
+      const x0 = anchor === 'middle' ? x - line.width / 2 : anchor === 'end' ? x - line.width : x;
+      const text = parent.append('text').attr('x', x0).attr('y', y + n * lh + size * 0.9).attr('class', cls).style('font-size', size + 'px');
+      if (fill) text.style('fill', fill);
+      let cur = 0, pending = 0; const bars = [];
+      line.words.forEach((word, j) => {
+        word.runs.forEach((r, m) => {
+          const target = r.s === 1 ? size * 0.24 : r.s === -1 ? -size * 0.4 : 0;
+          const t = text.append('tspan').text((j && !m && !word.glue ? ' ' : '') + r.t).attr('dy', target - cur);
+          cur = target;
+          if (r.b) t.style('font-weight', 600); if (r.i) t.style('font-style', 'italic');
+          if (r.s) t.style('font-size', size * 0.72 + 'px');
+          if (r.o) bars.push([t.node(), size]);
+          if (r.dx) t.attr('dx', r.dx); else if (pending) t.attr('dx', pending);
+          pending = r.after || 0;
+        });
+      });
+      for (const [node, sz] of bars) {
+        try {
+          const k = node.getNumberOfChars() - 1, a = node.getStartPositionOfChar(k), b = node.getEndPositionOfChar(k);
+          parent.append('line').attr('x1', a.x + sz * 0.12).attr('x2', b.x + sz * 0.08).attr('y1', a.y - sz * 0.8).attr('y2', a.y - sz * 0.8)
+            .style('stroke', 'var(--ink)').attr('stroke-width', 0.9);
+        } catch { /* not rendered yet */ }
+      }
+    });
+    return { height: lay.lines.length ? (lay.lines.length - 1) * lh + size * 1.2 : 0, width: lay.width };
+  }
+
+
+  const fmt = v => { const s = (Math.round(v * 100) / 100).toString(); return s.replace('-', '−'); };
+  const fw = v => (v / 100).toFixed(2).replace(/0$/, '').replace(/\.0$/, '').replace('-', '−');
+
+  // Terms of one segment, in units of 1e-4 bp (weights in %, returns in bp), so that
+  // every value is an exact integer and the displayed sums reconcile.
+  function terms(st, seg) {
+    const w = seg ? 100 - st.wp : st.wp, b = seg ? 100 - st.wb : st.wb;
+    const r = seg ? st.rp1 : st.rp0, rb = seg ? st.rb1 : st.rb0;
+    const RBx = st.wb * st.rb0 + (100 - st.wb) * st.rb1; // R_B in bp x 100
+    return { w, b, r, rb, RB: RBx / 100,
+      bench: b * rb * 100, sel: b * (r - rb) * 100, int: (w - b) * (r - rb) * 100,
+      a85: (w - b) * (rb * 100 - RBx), pale: (w - b) * RBx, a86: (w - b) * rb * 100, port: w * r * 100 };
+  }
+
+  function drawArea() {
+    const seg = +box.querySelector('.segment').value, S = seg ? 'B' : 'A';
+    const is85 = box.querySelector('.convention').value === '1985';
+    const folded = box.querySelector('.interaction').value === 'selection';
+    const t = terms(state, seg), other = terms(state, 1 - seg), t0 = terms(defaults, seg);
+    const v = x => x / 10000;
+    const W = svgEl.clientWidth || 400;
+    const narrow = W < 420, fs = 13;
+    const svg = d3.select(svgEl); svg.selectAll('*').remove();
+    const m = { l: narrow ? 80 : 92, r: 4, t: 10, b: 50 };
+    const pw = W - m.l - m.r, ph = Math.max(210, Math.min(330, pw * 0.86));
+    svg.attr('viewBox', `0 0 ${W} ${ph + m.t + m.b}`);
+    // Scales keep the example's extent, so moving a slider visibly grows or shrinks the areas.
+    const x = d3.scaleLinear().domain([0, Math.max(t0.w, t0.b, t.w, t.b) / 100]).range([m.l, m.l + pw]);
+    const ys = [0, t0.r, t0.rb, t0.RB, t.r, t.rb, t.RB];
+    const y = d3.scaleLinear().domain([Math.min(...ys), Math.max(...ys)]).range([m.t + ph, m.t]);
+    const defs = svg.append('defs');
+    defs.append('pattern').attr('id', uid + '-hatch').attr('width', 7).attr('height', 7).attr('patternUnits', 'userSpaceOnUse').attr('patternTransform', 'rotate(45)')
+      .append('line').attr('x1', 0).attr('x2', 0).attr('y1', 0).attr('y2', 7).style('stroke', 'var(--ink)').style('stroke-opacity', .45).attr('stroke-width', 1.4);
+
+    const sub = `_{${S}}`;
+    const wb = [t.b / 100, t.w / 100];
+    const regions = [
+      { key: 'bench', x: [0, t.b / 100], y: [0, t.rb], val: t.bench, fill: 'var(--w-bench)', label: `Benchmark in ${S}\n*b*${sub}*r*${sub}^{B} = ${fmt(v(t.bench))}`, bold: false },
+      folded
+        ? { key: 'sel', x: [0, t.w / 100], y: [t.rb, t.r], val: t.sel + t.int, fill: 'var(--w-sel)', light: true, label: `**Selection**\n*S*${sub} + *I*${sub} = ${fmt(v(t.sel + t.int))}` }
+        : { key: 'sel', x: [0, t.b / 100], y: [t.rb, t.r], val: t.sel, fill: 'var(--w-sel)', light: true, label: `**Selection**\n*S*${sub} = ${fmt(v(t.sel))}` },
+      ...(folded ? [] : [{ key: 'int', x: wb, y: [t.rb, t.r], val: t.int, fill: 'var(--w-int)', light: true, label: `**Interaction**\n*I*${sub} = ${fmt(v(t.int))}` }]),
+      ...(is85
+        ? [{ key: 'pale', x: wb, y: [0, t.RB], val: t.pale, fill: 'var(--w-pale)', small: true, label: `(*w*${sub}−*b*${sub})*R*_{B}\n= ${fmt(v(t.pale))}` },
+           { key: 'alloc', x: wb, y: [t.RB, t.rb], val: t.a85, fill: 'var(--w-alloc)', light: true, label: `**Allocation**\n*A*${sub} = ${fmt(v(t.a85))}` }]
+        : [{ key: 'alloc', x: wb, y: [0, t.rb], val: t.a86, fill: 'var(--w-alloc)', light: true, label: `**Allocation**\n*A*${sub} = ${fmt(v(t.a86))}` }]),
+    ];
+    // The benchmark area first, then positive terms; a negative term is drawn hatched on top of the area it takes away from.
+    const rank = d => d.key === 'bench' ? 0 : d.val < 0 ? 2 : 1;
+    regions.sort((a, b) => rank(a) - rank(b));
+    const g = svg.append('g');
+    const nodes = g.selectAll('g.region').data(regions).join('g').attr('class', 'region').attr('data-key', d => d.key)
+      .attr('tabindex', 0).attr('role', 'img').attr('aria-label', d => d.label.replace(/\*|_\{|\^\{|\}/g, '').replace('\n', ': '));
+    const px = d => { const [x0, x1] = d.x.map(x).sort((a, b) => a - b), [y0, y1] = d.y.map(y).sort((a, b) => a - b); return { x0, x1, y0, y1, w: x1 - x0, h: y1 - y0 }; };
+    const labels = svg.append('g').style('pointer-events', 'none');
+    // Labels are placed terms first, benchmark last; a label that would overlap one already placed is left out
+    // (every value is also in the notes).
+    const placed = [], free = b => !placed.some(q => b.x0 < q.x1 && q.x0 < b.x1 && b.y0 < q.y1 && q.y0 < b.y1);
+    const order = [];
+    nodes.each(function (d) {
+      const p = px(d), node = d3.select(this);
+      if (p.w < 0.5 || p.h < 0.5) return;
+      node.append('rect').attr('class', 'area').attr('x', p.x0).attr('y', p.y0).attr('width', p.w).attr('height', p.h)
+        .style('fill', d.fill).style('fill-opacity', d.val < 0 && d.key !== 'bench' ? .55 : 1).style('stroke', 'var(--w-rule)').attr('stroke-width', 1.2);
+      if (d.val < 0 && d.key !== 'bench') node.append('rect').attr('x', p.x0).attr('y', p.y0).attr('width', p.w).attr('height', p.h).style('fill', `url(#${uid}-hatch)`).style('pointer-events', 'none');
+      const onDark = d.light && d.val >= 0;
+      // The benchmark label is centred below the R_B line when that line crosses its area.
+      let ly0 = p.y0, ly1 = p.y1;
+      if (d.key === 'bench' && y(t.RB) > p.y0 + 30 && y(t.RB) < p.y1 - 30) { if (t.RB * t.rb > 0) ly0 = y(t.RB); }
+      order.push({ key: d.key, f: () => {
+        for (const size of [fs]) {
+          const lay = layout(d.label, p.w - 6, size), h = lay.lines.length * size * 1.28;
+          const cx = (p.x0 + p.x1) / 2, top = (ly0 + ly1) / 2 - h / 2 + 1;
+          const bb = { x0: cx - lay.width / 2, x1: cx + lay.width / 2, y0: top, y1: top + h };
+          if (lay.width <= p.w - 6 && h <= ly1 - ly0 - 4 && lay.lines.length <= 3) {
+            if (free(bb)) { placed.push(bb); draw(labels, d.label, { x: cx, y: top, w: p.w - 6, size, anchor: 'middle', fill: onDark ? '#fff' : null }); }
+            break;
+          }
+        }
+      } });
+    });
+    order.sort((a, b) => (a.key === 'bench') - (b.key === 'bench')).forEach(o => o.f());
+    // Portfolio rectangle, benchmark total return line, axes.
+    g.append('line').attr('x1', x(0)).attr('x2', x.range()[1]).attr('y1', y(t.RB)).attr('y2', y(t.RB)).style('stroke', 'var(--ink)').attr('stroke-dasharray', '4 3').attr('stroke-width', .9);
+    g.append('rect').attr('x', Math.min(x(0), x(t.w / 100))).attr('y', Math.min(y(0), y(t.r))).attr('width', Math.abs(x(t.w / 100) - x(0))).attr('height', Math.abs(y(t.r) - y(0)))
+      .style('fill', 'none').style('stroke', 'var(--ink)').attr('stroke-width', 1.1);
+    const axis = svg.append('g').style('pointer-events', 'none');
+    axis.append('line').attr('x1', x(0)).attr('x2', x.range()[1]).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--ink)').attr('stroke-width', .8);
+    axis.append('line').attr('x1', x(0)).attr('x2', x(0)).attr('y1', y.range()[0]).attr('y2', y.range()[1]).style('stroke', 'var(--ink)').attr('stroke-width', .8);
+    // Tick labels are spread apart when two values are close; the tick stays at the value.
+    function spread(items, gap) { items.sort((a, b) => a.p - b.p); for (let i = 1; i < items.length; i++) items[i].q = Math.max(items[i].p, items[i - 1].q + gap); return items; }
+    const yt = [{ v: 0, s: '0' }, { v: t.RB, s: `*R*_{B} = ${fmt(t.RB)}` }, { v: t.rb, s: `*r*${sub}^{B} = ${t.rb}`.replace('-', '−') }, { v: t.r, s: `*r*${sub} = ${t.r}`.replace('-', '−') }]
+      .map(d => ({ ...d, p: -y(d.v), q: -y(d.v) }));
+    spread(yt, 17).forEach(d => {
+      axis.append('line').attr('x1', x(0) - 4).attr('x2', x(0)).attr('y1', y(d.v)).attr('y2', y(d.v)).style('stroke', 'var(--ink)');
+      draw(axis, d.s, { x: x(0) - 7, y: -d.q - 9, size: fs, anchor: 'end' });
+    });
+    const xt = [{ v: 0, s: '0' }, { v: t.b / 100, s: `*b*${sub} = ${fw(t.b)}` }, { v: t.w / 100, s: `*w*${sub} = ${fw(t.w)}` }].map(d => ({ ...d, p: x(d.v), q: x(d.v) }));
+    const xs = spread(xt, 70);
+    const over = xs.at(-1).q - (W - 32); if (over > 0) xs.forEach(d => { d.q = Math.max(d.p - 70 * 2, d.q - over); });
+    xs.forEach((d, i) => {
+      axis.append('line').attr('x1', x(d.v)).attr('x2', x(d.v)).attr('y1', y(0)).attr('y2', y(0) + 4).style('stroke', 'var(--ink)');
+      draw(axis, d.s, { x: i ? d.q : x(0), y: Math.max(y(0), y.range()[0]) + 6, size: fs, anchor: 'middle' });
+    });
+    draw(axis, `weight in segment ${S}`, { x: m.l + pw / 2, y: m.t + ph + 28, size: fs, anchor: 'middle', fill: 'var(--muted-color)' });
+    const yl = axis.append('g').attr('transform', `translate(${narrow ? 12 : 16},${m.t + ph / 2}) rotate(-90)`);
+    draw(yl, 'return (bp)', { x: 0, y: -10, size: fs, anchor: 'middle', fill: 'var(--muted-color)' });
+
+    // Reading notes, recomputed.
+    const ix = `<sub>${S}</sub>`, rB = `<span class="nw"><i>r</i><span class="ss"><span>B</span><span>${S}</span></span></span>`;
+    const term = (key, html) => `<span class="term" data-key="${key}" tabindex="0">${html}</span>`;
+    const added = folded ? [is85 ? t.a85 : t.a86, ...(is85 ? [t.pale] : []), t.sel + t.int] : [is85 ? t.a85 : t.a86, ...(is85 ? [t.pale] : []), t.sel, t.int];
+    const keys = folded ? ['alloc', ...(is85 ? ['pale'] : []), 'sel'] : ['alloc', ...(is85 ? ['pale'] : []), 'sel', 'int'];
+    const sumText = added.map((a, i) => (i ? (a < 0 ? '− ' : '+ ') : '') + term(keys[i], fmt(v(i ? Math.abs(a) : a)))).join(' ');
+    const html = [
+      `<p><b>Outer rectangle:</b> the portfolio in ${S}, <i>w</i>${ix}<i>r</i>${ix} = ${fw(t.w)} × ${fmt(t.r)} = ${fmt(v(t.port))}.${t.rb * t.r < 0 || t.r < 0 || t.rb < 0 ? ` Benchmark in ${S}: ${term('bench', `<i>b</i>${ix}${rB} = ${fmt(v(t.bench))}`)}.` : ''}</p>`,
+      `<p><b>Added area:</b> ${sumText} = ${fmt(v(t.port - t.bench))} = <i>w</i>${ix}<i>r</i>${ix} − <i>b</i>${ix}${rB}.</p>`,
+      is85
+        ? `<p><b>Allocation 1985</b> is the dark strip above <i>R</i><sub>B</sub>. The 1986 convention takes the whole strip, (<i>w</i>${ix}−<i>b</i>${ix})${rB} = ${fmt(v(t.a86))}. The pale part, (<i>w<sub>i</sub></i>−<i>b<sub>i</sub></i>)<i>R</i><sub>B</sub>, sums to zero over segments: ${term('pale', fmt(v(t.pale)))} in ${S}, ${fmt(v(other.pale))} in ${seg ? 'A' : 'B'}.</p>`
+        : `<p><b>Allocation 1986</b> takes the whole strip, (<i>w</i>${ix}−<i>b</i>${ix})${rB} = ${term('alloc', fmt(v(t.a86)))}. The 1985 convention keeps only the part above <i>R</i><sub>B</sub>, ${fmt(v(t.a85))}.</p>`,
+      folded ? `<p><b>Interaction folded in:</b> selection becomes <i>w</i>${ix}(<i>r</i>${ix} − ${rB}) = ${term('sel', fmt(v(t.sel + t.int)))}, the whole top strip.</p>` : '',
+    ].join('');
+    notes.innerHTML = html;
+    const all = g.selectAll('g.region');
+    const hl = key => { svg.classed('dim', !!key); all.classed('hl', d => d.key === key); notes.querySelectorAll('.term').forEach(el => el.classList.toggle('hl', el.dataset.key === key)); };
+    all.on('mouseenter focus', (_, d) => hl(d.key)).on('mouseleave blur', () => hl(null));
+    notes.querySelectorAll('.term').forEach(el => { el.addEventListener('mouseenter', () => hl(el.dataset.key)); el.addEventListener('focus', () => hl(el.dataset.key)); el.addEventListener('mouseleave', () => hl(null)); el.addEventListener('blur', () => hl(null)); });
+    // The values drawn, in the units of the bar panels (1e-4 bp), for the render check.
+    const drawn = k => regions.find(d => d.key === k)?.val ?? 0;
+    return { segment: seg, terms: [drawn('alloc'), drawn('sel'), drawn('int')],
+      bp: { bench: v(t.bench), selection: v(drawn('sel')), interaction: v(drawn('int')), allocation: v(drawn('alloc')), pale: v(t.pale), portfolio: v(t.port), RB: t.RB, allocation1986: v(t.a86) } };
+  }
+
+  d3.json(root.dataset.url).then(data => {
+    defaults = { wp: data.portfolioWeight, wb: data.benchmarkWeight, rp0: data.portfolioReturnsBp[0], rb0: data.benchmarkReturnsBp[0], rp1: data.portfolioReturnsBp[1], rb1: data.benchmarkReturnsBp[1] };
+    slider('wp','Portfolio weight A',0,100,1,data.portfolioWeight,'%');
+    slider('wb','Benchmark weight A',0,100,1,data.benchmarkWeight,'%');
+    for (let i=0;i<2;i++) {
+      slider('rp'+i,`Portfolio return ${i?'B':'A'}`,-1000,1500,10,data.portfolioReturnsBp[i],' bp');
+      slider('rb'+i,`Benchmark return ${i?'B':'A'}`,-1000,1500,10,data.benchmarkReturnsBp[i],' bp');
+    }
+    box.querySelectorAll('select').forEach(el=>el.addEventListener('change',draw));
+    function draw() {
+      const wp=[state.wp,100-state.wp], wb=[state.wb,100-state.wb];
+      const rp=[state.rp0,state.rp1], rb=[state.rb0,state.rb1];
+      // All contributions are integer multiples of 1/10000 bp. No floating-point residual is hidden.
+      const benchmark=wb.reduce((s,w,i)=>s+w*rb[i],0);
+      const portfolio=wp.reduce((s,w,i)=>s+w*rp[i],0);
+      const bf=box.querySelector('.convention').value==='1985';
+      const folded=box.querySelector('.interaction').value==='selection';
+      const terms=wp.map((w,i)=>{
+        const a=(w-wb[i])*(rb[i]*100-(bf?benchmark:0));
+        const interaction=(w-wb[i])*(rp[i]-rb[i])*100;
+        const selection=wb[i]*(rp[i]-rb[i])*100;
+        return [a,selection+(folded?interaction:0),folded?0:interaction];
+      });
+      const total=[0,1,2].map(k=>terms[0][k]+terms[1][k]);
+      const labels=['Allocation','Selection','Interaction'];
+      const colors=['var(--info-color)','var(--primary-color)','var(--success-color)'];
+      // Common domain for the three panels, fitted to the current effects (bp).
+      const limit=Math.max(10,d3.max([...terms.flat(),...total],v=>Math.abs(v/10000))*1.15);
+      [terms[0],terms[1],total].forEach((values,i)=>bars(['.segment-a','.segment-b','.total'][i],values.map((v,k)=>({label:labels[k],value:v/10000,color:colors[k]})),' bp',limit));
+      const area=drawArea();
+      const residual=total.reduce((a,b)=>a+b,0)-(portfolio-benchmark)*100;
+      status.textContent=`Portfolio ${(portfolio/10000).toFixed(2)}%; benchmark ${(benchmark/10000).toFixed(2)}%; active return ${((portfolio-benchmark)/100).toFixed(2)} bp. Sum ${(d3.sum(total)/10000).toFixed(2)} bp; identity residual ${residual/10000} bp. B weights: portfolio ${wp[1]}%, benchmark ${wb[1]}%.`;
+      box.dataset.result=JSON.stringify({terms,total,activeNumerator:(portfolio-benchmark)*100,residual,area});
+    }
+
+    box.addEventListener('figure-input',draw);
+    new ResizeObserver(draw).observe(box);
+    draw(); box.dataset.ready='true';
+  }).catch(error => { status.textContent=`Could not load figure: ${error.message}`; status.classList.add('error'); });
+
+})();
+</script>

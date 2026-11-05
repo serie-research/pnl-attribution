@@ -1,0 +1,73 @@
+---
+// Usage: <PaperNote id="key" look="Section or figure">…</PaperNote>
+// A margin note about a paper. It sits next to the paragraph (or block) just before it; on
+// narrow screens, under that paragraph. The same layout for every paper:
+//   - the authors and the year ("Markov · 1913");
+//   - the title, linked to the paper, then the venue (all from papers.json);
+//   - the note itself (the slot, in markdown);
+//   - optionally, `look`: the figure, table or section of the paper worth looking at;
+//   - a link to the paper in the reference list.
+import Sidenote from "../Sidenote.astro";
+import { paper } from "./papers";
+interface Props {
+  id: string;
+  look?: string;
+}
+const { id, look } = Astro.props as Props;
+const p = paper(id);
+const link = p.pdf ?? p.url;
+---
+<Sidenote>
+  <div class="paper-note" id={`paper-${p.key}`}>
+    <div class="paper-note__kicker">{p.authors} · {p.year}</div>
+    <div class="paper-note__title">
+      {link ? <a href={link} target="_blank" rel="noopener noreferrer">{p.title}</a> : p.title}
+    </div>
+    <div class="paper-note__meta">{p.venue}</div>
+    <div class="paper-note__body"><slot /></div>
+    {look && <div class="paper-note__look"><span class="paper-note__look-label">See</span> {look}</div>}
+    <div class="paper-note__ref">
+      <a href={`#bib-${p.key.toLowerCase()}`} title="In the reference list">references ↓</a>
+    </div>
+  </div>
+</Sidenote>
+
+<style is:global>
+  .paper-note {
+    --paper-color: oklch(0.55 0.12 265);
+    border-left: 2px solid var(--paper-color);
+    padding-left: 10px;
+    font-size: 0.85rem;
+    line-height: 1.45;
+  }
+  [data-theme="dark"] .paper-note { --paper-color: oklch(0.72 0.11 265); }
+  .paper-note__kicker {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--paper-color);
+  }
+  .paper-note__ref { margin-top: 6px; font-size: 0.75rem; }
+  .paper-note .paper-note__ref a {
+    color: var(--muted-color);
+    background: none;
+    border-bottom: 0;
+  }
+  .paper-note .paper-note__ref a:hover { color: var(--text-color); }
+  .paper-note__title { color: var(--text-color); line-height: 1.3; margin-top: 2px; }
+  .paper-note__meta {
+    font-size: 0.75rem;
+    font-weight: 300;
+    line-height: 1.35;
+    color: var(--muted-color);
+    margin: 3px 0 6px;
+  }
+  .paper-note__body { color: var(--text-color); }
+  .paper-note__body > :first-child { margin-top: 0; }
+  .paper-note__body > :last-child { margin-bottom: 0; }
+  .paper-note__body p { margin: 0 0 6px; }
+  .paper-note__look { margin-top: 6px; color: var(--muted-color); }
+  .paper-note__look-label { font-weight: 700; color: var(--paper-color); }
+  .paper-note .placeholder { margin: 6px 0 0; font-size: 0.8rem; }
+</style>

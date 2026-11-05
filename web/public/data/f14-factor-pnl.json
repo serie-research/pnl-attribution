@@ -1,0 +1,8 @@
+{
+  "assets": 100,
+  "seed": 291026,
+  "exposure": 0,
+  "ic": 0.02,
+  "days": 252,
+  "description": "Synthetic one-factor model. Independent standard Gaussian market and asset shocks; zero factor mean. Balanced binary specific signal. Positions normalize specific daily P&L volatility to one."
+}

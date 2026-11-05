@@ -1,0 +1,66 @@
+---
+import ThemeInit from '../components/ThemeInit.astro';
+import '../styles/session.css';
+import '../styles/embeds.css';
+import 'katex/dist/katex.min.css';
+import type { MarkdownHeading } from 'astro';
+const { title, subtitle = "", headings } = Astro.props;
+const sections: { heading: MarkdownHeading; children: MarkdownHeading[] }[] = [];
+for (const heading of headings as MarkdownHeading[]) {
+  if (heading.depth === 2) sections.push({ heading, children: [] });
+  else if (heading.depth === 3 && sections.length) sections.at(-1)!.children.push(heading);
+}
+// Stable publisher destinations for inherited Google Books search URLs.
+const bookLinks = {
+  P2FMEQAAQBAJ: 'https://www.wiley.com/en-us/the-elements-of-quantitative-investing-p-9781394265459',
+  s8E5EAAAQBAJ: 'https://www.wiley.com/en-us/quantitative-portfolio-management-the-art-and-science-of-statistical-arbitrage-p-9781119821328',
+  hHa3EAAAQBAJ: 'https://doi.org/10.1017/9781009028943',
+};
+const content = (await Astro.slots.render('default')).replace(/https:\/\/books\.google\.com\/books\?[^"<>]+/g, href => {
+  const url = new URL(href.replaceAll('&amp;', '&'));
+  return bookLinks[url.searchParams.get('id')] ?? `https://books.google.com/books?id=${url.searchParams.get('id')}`;
+});
+---
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>{title}</title>
+<ThemeInit /></head>
+<body><header><button id="theme-toggle" type="button" aria-label="Switch to dark theme" title="Switch to dark theme"><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button><h1>{title}</h1>{subtitle && <p class="subtitle">{subtitle}</p>}<p class="present"><a class="present-link" href="present/" title="Presentation view: one section per screen, QR code, pen">present</a></p></header>
+<nav id="sections" aria-label="Session sections"><details><summary>Sections</summary><ul class="section-list">{sections.map(({ heading, children }) => <li>
+  <a href={`#${heading.slug}`}>{heading.text}</a>
+  {children.length > 0 && <ul>{children.map(h => <li><a href={`#${h.slug}`}>{h.text}</a></li>)}</ul>}
+</li>)}</ul></details></nav>
+<main set:html={content} /><footer>© 2026 Emmanuel Sérié. Text and figures: <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>; code: <a href="https://opensource.org/license/mit">MIT</a>. Adapted from <a href="https://huggingface.co/spaces/tfrere/research-article-template">Thibaud Frere's research article template</a> and <a href="https://huggingface.co/spaces/dlouapre/nlp-before-llms">David Louapre's course page</a> (CC BY 4.0).</footer></body></html>
+
+<script>
+  import { themeToggle } from '../scripts/theme.js';
+  themeToggle(document.getElementById('theme-toggle'));
+  // Prose partials place each paper note immediately before its citing block.
+  // Absolute positioning keeps the desktop note out of the main text flow.
+  function alignNotes() {
+    for (const wrapper of document.querySelectorAll('.sidenote-wrapper')) {
+      const aside = wrapper.querySelector('.sidenote-container');
+      const anchor = wrapper.nextElementSibling;
+      aside.style.top = '';
+      if (window.innerWidth >= 1200 && anchor) {
+        aside.style.top = `${anchor.getBoundingClientRect().top - wrapper.getBoundingClientRect().top}px`;
+      }
+    }
+  }
+  document.fonts.ready.then(alignNotes);
+  window.addEventListener('resize', alignNotes);
+  // Native number formatting uses a hyphen; figure text uses the mathematical minus.
+  for (const host of document.querySelectorAll('[data-embed]')) {
+    const normalize = () => {
+      const walker = document.createTreeWalker(host, NodeFilter.SHOW_TEXT);
+      while (walker.nextNode()) {
+        const node = walker.currentNode;
+        if (!node.parentElement.closest('script, style')) {
+          const value = node.textContent.replace(/-(?=\d)/g, '−');
+          if(value !== node.textContent) node.textContent = value;
+        }
+      }
+    };
+    new MutationObserver(normalize).observe(host, {childList: true, subtree: true, characterData: true});
+    normalize();
+  }
+</script>

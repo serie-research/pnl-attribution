@@ -1,0 +1,235 @@
+import Optional from '../../../components/post/Optional.astro';
+import PaperNote from '../../../components/post/PaperNote.astro';
+
+When indicators move together, there are several ways to split credit between them, and each way answers a different question.
+
+State indicators, the second kind of indicator in [section 1.3](#13-two-kinds-of-indicator), are spread, volatility and market order flow; inventory and the desk's own orders belong with the policy. Section 3 shares a P&L between signals by rerunning the policy or through its optimality equations. The policy may ignore state indicators, or we may be unable to rerun it; in either case a fitted model links the indicators to an outcome, such as the daily P&L or the markout of a fill. Attribution then splits what the correlated indicators tell us about that outcome.
+
+- **Value of a subset.** The value $v(S)$ measures what the indicators in a subset $S$ tell us about the outcome. The rule that gives $v(S)$ for every subset is a *game*. The value with no indicator, $v(\varnothing)$, is the baseline.
+- **Shapley share.** The Shapley share of an indicator is its gain in $v$ when it joins a subset, averaged over all orders of entry. With $N$ the set of all indicators, the shares sum to $v(N)-v(\varnothing)$.
+
+<Optional title="Other terms used in this section" subtitle="outcome, indicator, model, coalition, null comparison">
+
+- **Outcome.** The quantity to explain, $Y$, such as the daily P&L or the markout of a fill (section 2.5).
+- **Indicator.** A recorded variable that may carry information about the outcome, such as volatility or spread. $X_S$ denotes the indicators in a subset $S$, and $x$ their values on one day.
+- **Model and prediction.** A model maps the values $x$ of the indicators to a prediction $\hat y(x)$ of the outcome. We fit the model to past data.
+- **Subset.** In game language, a subset $S$ of the indicators is a *coalition*.
+- **Null comparison.** The same calculation after the outcome is shuffled, so that no indicator carries information about it. It shows how large a share can be by chance (section 4.3).
+
+</Optional>
+
+{/* @include i4-shared-information */}
+
+### 4.1 Shared information is not a regression coefficient
+
+An indicator correlated with the real driver of the P&L predicts the same gains
+and losses without causing them.
+
+When two indicators are near-copies, a regression predicts their joint effect
+well but cannot tell them apart. A small change in the sample can move a large
+coefficient from one indicator to the other, or reverse its sign. A coefficient
+describes a change in one input with the others fixed, and near-copies rarely
+move apart in the data; its size also depends on the input's units.
+
+<PaperNote id="lipovetskyAnalysisRegressionGame2001" look="Table II, p. 329">
+
+In the paper's example, the coefficients vary more across bootstrap samples
+than the Shapley shares of explained variance. The paper does not claim this in
+general.
+
+</PaperNote>
+
+@lipovetskyAnalysisRegressionGame2001 split a regression's explained variance
+between the predictors with Shapley's rule. They fit a separate regression to
+each subset of predictors. The value of a subset is the fraction of the
+outcome's variance that its regression fits:
+
+$$
+v(S)=R^2\ \text{of the regression of } Y \text{ on } X_S .
+$$
+
+Near-copies share the variance that they explain together. Averaged over the
+orders of entry, a redundant indicator gets credit when it enters before its substitute, even if it
+adds little when it enters last.
+
+{/* @include f7-correlated */}
+
+### 4.2 The game comes before the allocation
+
+Shapley's rule stays the same in every game. The game changes what a subset is
+worth, and so what the shares mean. With $K$ indicators, the share of indicator
+$k$ is
+
+$$
+\begin{aligned}
+\phi_k(v)&=\sum_{S\subseteq N\setminus\{k\}}\omega(S)\,\Delta_k v(S),\\
+\omega(S)&=\frac{|S|!\,(K-|S|-1)!}{K!},\\
+\Delta_k v(S)&=v(S\cup\{k\})-v(S).
+\end{aligned}
+$$
+
+The weights average the gain of an indicator over all orders of entry. Each
+game below answers one question. In the formulas, $\hat y$ is the fitted
+model's prediction.
+
+<PaperNote id="grompingEstimatorsRelativeImportance2007">
+
+The same Shapley split of $R^2$ predates its game-theoretic interpretation: it
+is the LMG measure of relative importance, named after Lindeman, Merenda and
+Gold. Grömping compares it with other variance decompositions and gives its
+properties for correlated regressors.
+
+</PaperNote>
+
+**Refitted regression $R^2$.** How much of the day-to-day variation of the P&L
+can a regression on these indicators fit?
+
+$$
+v(S)=R^2\ \text{of the regression of } Y \text{ on } X_S,\ \text{refitted for each } S .
+$$
+
+Training $R^2$ cannot fall when an ordinary least-squares model with an
+intercept gains a predictor. Its Shapley shares are therefore nonnegative, even
+for predictors that contain only noise.
+
+**Conditional variance.** The fitted model stays fixed. If we know only these
+indicators, how much does its predicted P&L vary?
+
+$$
+v(S)=\operatorname{Var}\big(\mathbb{E}[\hat y(X)\mid X_S]\big).
+$$
+
+<Optional title="Conditional variance for independent inputs" subtitle="ANOVA and Sobol' bounds">
+
+@owenSobolIndicesShapley2014 studies this game for independent inputs and
+derives its Shapley share from the model's variance decomposition (ANOVA). The
+share lies between the variance an input explains alone and the variance it
+adds when it comes last (two Sobol' indices). With correlated indicators,
+conditional variance is still a possible game, but this formula and these
+bounds need not hold.
+
+</Optional>
+
+**Local SHAP.** On one day, how far does each indicator move the model's
+prediction from its average? Two games answer this question, and they differ
+when indicators are correlated. Write $\bar S$ for the indicators not in $S$.
+
+$$
+\begin{aligned}
+v_{\rm cond}(S)&=\mathbb{E}[\hat y(X)\mid X_S=x_S],\\
+v_{\rm int}(S)&=\mathbb{E}\big[\hat y(x_S,X_{\bar S})\big]\quad\text{for one day } x .
+\end{aligned}
+$$
+
+In the conditional game, the missing indicators are averaged given the known
+ones. In the interventional (marginal) game, they are drawn from a background
+sample, independently of the known ones.
+
+The interventional game explains what the model computes. The conditional game also credits what an indicator reveals about the indicators
+correlated with it. Neither game measures what the P&L would do if an indicator
+changed. SHAP (Shapley additive explanations) shares are signed and in the units of the model's output, for
+example a predicted P&L in euros [@lundbergUnifiedApproachInterpreting2017].
+
+<Optional title="Conditional or interventional SHAP" subtitle="units, correlated indicators, unused inputs, estimators">
+
+The shares add up to that day's prediction minus the average prediction over
+the background set, not to a fraction of variance. They change with the choice
+of background set, and an indicator can push one prediction down and another
+up. TreeSHAP in its interventional mode and KernelSHAP with a
+background set compute the interventional game.
+
+The two games treat a correlated indicator that the model does not use in
+different ways. The interventional game gives it zero, because changing it
+does not change the prediction. The conditional game spreads credit to it,
+because knowing it tells us about the indicators the model does use
+[@sundararajanManyShapleyValues2020].
+@janzingFeatureRelevanceQuantification2020 argue that explaining a model's
+output means intervening on its inputs, which leads to the interventional game.
+@chenTrueModelTrue2020 call the
+interventional game true to the model and the conditional game true to the
+data, and leave the choice to the application.
+
+</Optional>
+
+**SAGE** (Shapley additive global importance). How much smaller is the model's prediction error when it can use these
+indicators?
+
+$$
+v(S)=\mathbb{E}\big[(Y-\mathbb{E}\,\hat y(X))^2\big]-\mathbb{E}\big[(Y-\mathbb{E}[\hat y(X)\mid X_S])^2\big].
+$$
+
+@covertUnderstandingGlobalFeature2020 introduce SAGE. Its value is the reduction
+in expected prediction loss relative to using no indicator. Here the loss is
+squared error, and the value depends on both the fitted model and the loss.
+
+<Optional title="SAGE in practice, and when the global games agree" subtitle="estimator, population and estimated shares">
+
+The formula averages over the missing indicators given the known ones, but the
+SAGE estimator samples them from their marginal distribution in practice, so
+with correlated indicators it computes the interventional version of this game.
+
+Suppose that the linear model is the true conditional mean, the loss is squared
+error and the indicators are jointly Gaussian, so that the conditional mean
+given any subset is also linear. Then refitted explained variance, conditional
+variance and conditional SAGE (with exact Gaussian conditional means) give the
+same population shares once their normalisations match. Estimated global
+shares can still differ because of training versus evaluation samples,
+estimation error or misspecification. The diagram at the start of section 4
+is close to these conditions: its indicators are lognormal and its P&L slightly
+concave in volatility, so its three global games give the same split after
+rounding, though not the same values for one indicator alone.
+
+</Optional>
+
+These shares measure predictive information, not realised P&L. A ranking is
+read together with its game, its treatment of missing indicators and its
+baseline.
+
+### 4.3 Importance needs a comparison under the null
+
+A model fitted to noise still returns shares, and one of them is the largest.
+The top share therefore needs a comparison with the top share obtained when the
+P&L is shuffled in blocks, which keeps its time dependence. That comparison says
+whether any indicator predicts the outcome.
+
+<Optional title="Fair competitors and other importance measures" subtitle="what the shuffle tests, simpler measures, knockoffs, null comparisons in interpretability">
+
+Shuffling the whole response, one observation at a time or in blocks, does not
+test whether one indicator adds information when others already predict the
+outcome. If the finding is that one indicator has the largest share, a null
+band computed for that indicator alone ignores that it was picked as the top;
+the top share on shuffled responses accounts for that choice.
+
+Simpler importance measures make different comparisons:
+
+- a single-indicator fit can give high scores to several substitutes;
+- dropping an indicator and refitting may barely hurt, because another replaces it;
+- permuting a column without refitting can create combinations absent from the joint distribution.
+
+These quantities need not add to a common total.
+
+Shuffling one indicator creates an unfair competitor for it, because the shuffle
+removes its correlations with the other indicators. Knockoffs
+[@barberControllingFalseDiscovery2015] give each indicator a fair competitor. A
+knockoff is an artificial variable with the same correlations with the other
+indicators as the original, built without using the outcome. An indicator is
+kept only if it clearly beats its knockoff. Under Barber and Candès's
+assumptions, their Knockoff+ rule controls the false discovery rate: the
+expected fraction of kept indicators whose true coefficient is zero. The method
+selects variables and allocates no profit.
+
+Their construction is fixed-X: a Gaussian linear model with a fixed design and,
+in their basic construction, $n\geq 2p$ observations for $p$ indicators. @candesPanningGoldModelX2018 drop the linear
+model: they assume that the joint distribution of the indicators is known, and
+the link to the outcome can be nonlinear. Both versions assume independent
+observations, so the guarantee does not cover serially dependent intraday
+errors.
+
+Attribution needs a null comparison even without variable selection.
+@melouxDeadSalmonsAI2025 argue for explicit null comparisons in the
+interpretability of neural networks; their own experiments are probing tasks,
+not Shapley attribution.
+
+</Optional>
+
+[↑ Sections](#)

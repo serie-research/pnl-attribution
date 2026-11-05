@@ -1,0 +1,29 @@
+<div class="demo-chart"><label>Visible values <input type="range" min="1" max="10" value="10" /> <output>10</output></label><svg role="img" aria-label="Demonstration values from one to ten" viewBox="0 0 600 230"></svg><p class="demo-status" role="status"></p></div>
+<style>.demo-chart { padding: 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--surface-bg); }.demo-chart svg { display:block; width:100%; }.demo-chart label { display:flex; gap:8px; flex-wrap:wrap; }.demo-chart input { max-width:100%; }.demo-chart text { fill:var(--text-color); font:14px sans-serif; }</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const chart = root.querySelector('.demo-chart');
+  const slider = chart.querySelector('input');
+  const status = chart.querySelector('.demo-status');
+  d3.json(root.dataset.url).then(values => {
+    const svg = d3.select(chart.querySelector('svg'));
+    function draw() {
+      const count = Number(slider.value);
+      chart.querySelector('output').value = count;
+      const shown = values.slice(0, count);
+      const x = d3.scaleBand().domain(d3.range(10)).range([30, 580]).padding(0.2);
+      const y = d3.scaleLinear().domain([0, 10]).range([195, 15]);
+      svg.selectAll('rect').data(shown).join('rect')
+        .attr('x', (_, i) => x(i)).attr('y', y).attr('width', x.bandwidth())
+        .attr('height', d => 195 - y(d)).attr('fill', 'var(--primary-color)');
+      svg.selectAll('text').data(shown).join('text')
+        .attr('x', (_, i) => x(i) + x.bandwidth()/2).attr('y', 218)
+        .attr('text-anchor', 'middle').text(d => d);
+      status.textContent = `Mean of visible demonstration values: ${d3.mean(shown)}`;
+    }
+    slider.addEventListener('input', draw);
+    draw();
+  }).catch(error => { status.textContent = `Could not load demonstration data: ${error.message}`; });
+})();
+</script>

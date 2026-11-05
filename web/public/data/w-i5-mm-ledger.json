@@ -1,0 +1,7 @@
+{
+  "description": "Hypothetical purchase of one share, as in section 2.5. Amounts in euros; one fee, no rebate, hedge or liquidation cost.",
+  "before": 100.00,
+  "fill": 99.98,
+  "later": 99.95,
+  "fees": 0.01
+}

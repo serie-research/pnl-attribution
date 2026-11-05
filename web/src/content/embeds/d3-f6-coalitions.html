@@ -1,0 +1,92 @@
+<div class="f6-game">
+  <p>Integer P&amp;L units. Edit any nonempty coalition; the empty coalition stays at zero.</p>
+  <div class="values"></div>
+  <label class="choose">Inspect signal <select aria-label="Inspect signal"><option>A</option><option>B</option><option>C</option></select></label>
+  <svg viewBox="0 0 540 330" role="img" aria-label="Lattice of the eight signal coalitions and their P&L values"></svg>
+  <p>Each edge adds one signal. Highlighted edges add the selected signal.</p>
+  <div class="marginals"></div>
+  <div class="summary" role="status" aria-live="polite"></div>
+  <button type="button">Reset illustrative game</button>
+</div>
+<style>
+.f6-game { border:1px solid var(--border-color); border-radius:8px; padding:12px; }
+.f6-game .values { display:grid; grid-template-columns:repeat(auto-fit,minmax(115px,1fr)); gap:8px; margin-bottom:12px; }
+.f6-game .values label { display:flex; flex-direction:column; font-size:14px; }
+.f6-game input { width:90px; max-width:100%; }
+.f6-game input,.f6-game select,.f6-game button { color:var(--text-color); background:var(--surface-bg); border:1px solid var(--border-color); border-radius:4px; padding:4px; }
+.f6-game svg { width:100%; display:block; }
+.f6-game svg text { font:17px sans-serif; fill:var(--text-color); text-anchor:middle; }
+.f6-game p,.f6-game .marginals { font-size:14px; }
+.f6-game .marginals p { margin:6px 0; }
+@media(max-width:600px) { .f6-game svg text {font-size:23px;} }
+</style>
+<script>
+(() => {
+  const host=document.currentScript.closest('[data-embed]');
+  const root=host.querySelector('.f6-game');
+  d3.json(host.dataset.url).then(data=>{
+    const values=data.values.map(BigInt), inputs=[];
+    const pop=n=>n.toString(2).replaceAll('0','').length;
+    const name=mask=>mask===0?'∅':data.names.filter((_,i)=>mask&(1<<i)).join('');
+    for(let mask=0;mask<8;mask++) {
+      const label=document.createElement('label'); label.textContent=`v(${name(mask)})`;
+      const input=document.createElement('input');
+      Object.assign(input,{type:'number',min:-10000,max:10000,step:1,value:String(values[mask]),disabled:mask===0});
+      input.setAttribute('aria-label',`Coalition ${name(mask)} value`);
+      const normalize = () => {
+        const v = Number(input.value);
+        if(input.value.trim() !== '' && Number.isFinite(v)) values[mask]=BigInt(Math.max(-10000,Math.min(10000,Math.round(v))));
+        input.value=String(values[mask]); input.setCustomValidity(''); draw();
+      };
+      input.addEventListener('input',()=>{
+        if(input.value.trim() !== '' && Number.isInteger(Number(input.value)) && Math.abs(Number(input.value))<=10000) { values[mask]=BigInt(Number(input.value)); draw(); }
+      });
+      input.addEventListener('change',normalize);
+      input.addEventListener('blur',normalize);
+      label.append(input); root.querySelector('.values').append(label); inputs.push(input);
+    }
+    const svg=d3.select(root.querySelector('svg'));
+    const positions=[[270,285],[80,205],[270,205],[80,115],[460,205],[270,115],[460,115],[270,30]];
+    const edges=[];
+    for(let mask=0;mask<8;mask++) for(let k=0;k<3;k++) if(!(mask&(1<<k))) edges.push({from:mask,to:mask|(1<<k),k});
+    const links=svg.selectAll('line').data(edges).join('line')
+      .attr('x1',e=>positions[e.from][0]).attr('y1',e=>positions[e.from][1]-12)
+      .attr('x2',e=>positions[e.to][0]).attr('y2',e=>positions[e.to][1]+12);
+    const nodes=svg.selectAll('text').data(d3.range(8)).join('text').attr('x',m=>positions[m][0]).attr('y',m=>positions[m][1]);
+    function gcd(a,b) {a=a<0n?-a:a; while(b) [a,b]=[b,a%b]; return a;}
+    function fraction(n,d=6n) {if(d<0n) {n=-n; d=-d;} const g=gcd(n,d); return d/g===1n?String(n/g):`${n/g}/${d/g}`;}
+    function numerators() {
+      return [0,1,2].map(k=>{
+        let n=0n;
+        for(let mask=0;mask<8;mask++) if(!(mask&(1<<k))) n+=BigInt(pop(mask)===1?1:2)*(values[mask|(1<<k)]-values[mask]);
+        return n;
+      });
+    }
+    function draw() {
+      const k=root.querySelector('select').selectedIndex;
+      links.attr('stroke',e=>e.k===k?'var(--primary-color)':'var(--border-color)').attr('stroke-width',e=>e.k===k?3:1);
+      nodes.text(m=>`${name(m)}: ${values[m]}`);
+      const marginals=root.querySelector('.marginals'); marginals.replaceChildren();
+      const head=document.createElement('p'); head.textContent=`Shapley weights for ${data.names[k]}: |S|! (2−|S|)! / 3!`; marginals.append(head);
+      for(let mask=0;mask<8;mask++) if(!(mask&(1<<k))) {
+        const delta=values[mask|(1<<k)]-values[mask], w=BigInt(pop(mask)===1?1:2);
+        const p=document.createElement('p'); p.textContent=`${name(mask)} → ${name(mask|(1<<k))}: marginal ${delta} × weight ${fraction(w)} = ${fraction(delta*w)}`; marginals.append(p);
+      }
+      const phi=numerators(), sum=phi.reduce((a,b)=>a+b,0n);
+      if(sum!==6n*values[7]) throw Error('Shapley efficiency failed');
+      root.dataset.shapleyNumerators=JSON.stringify(phi.map(String));
+      const summary=root.querySelector('.summary'); summary.replaceChildren();
+      for(let j=0;j<3;j++) {
+        const p=document.createElement('p');
+        p.textContent=`${data.names[j]}: stand-alone ${values[1<<j]}; leave-one-out ${values[7]-values[7^(1<<j)]}; Shapley ${fraction(phi[j])} P&L units`+
+          (values[7]===0n?' (percentage undefined: total is zero).':` (${(Number(phi[j])*100/(6*Number(values[7]))).toFixed(1)}% of total).`);
+        summary.append(p);
+      }
+      const p=document.createElement('p'); p.textContent=`Interaction v(ABC) − v(A) − v(B) − v(C) = ${values[7]-values[1]-values[2]-values[4]}. Shapley sum = ${fraction(sum)} = v(ABC). All arithmetic uses exact integer fractions.`; summary.append(p);
+    }
+    root.querySelector('select').addEventListener('change',draw);
+    root.querySelector('button').addEventListener('click',()=>{data.values.forEach((v,i)=>{values[i]=BigInt(v); inputs[i].value=v; inputs[i].setCustomValidity('');}); draw();});
+    draw();
+  }).catch(error=>{root.querySelector('.summary').textContent=`Figure unavailable: ${error.message}`;});
+})();
+</script>

@@ -1,0 +1,28 @@
+import SourceLink from '../../../components/SourceLink.astro';
+import citation from '../../../content/citation.json';
+
+The <a href={citation.repository}>source repository</a> holds the whole page: the text, the presentation view, the notebook, the simulation package and the instructions to rebuild everything, offline if needed.
+The files below reproduce the signal study of section 3 without cloning the repository.
+The <SourceLink path="code/reproduce.zip">source bundle</SourceLink> contains them and the scripts that export each figure's data; its <SourceLink path="code/README.md">instructions</SourceLink> say how to install the dependencies and which studies the bundle reruns. The notebook also runs in a browser without installation, in the <a href={`${import.meta.env.BASE_URL}lab/`}>browser lab</a>; its first load downloads about 25 MB.
+
+<div class="code-data-table" role="region" aria-label="Code and data files" tabIndex="0">
+
+| File | Reproduces | Requirements | Run time |
+| --- | --- | --- | --- |
+| <SourceLink path="notebooks/signal-attribution.ipynb">Notebook</SourceLink> | Methods and examples in §3.5; includes CVXPY and closed-form comparisons | Python, Jupyter, NumPy, SciPy, CVXPY; or a browser (lab) | about 30 s locally; about 45 s in the browser lab |
+| <SourceLink path="code/sim/signal_attribution/units.py">Signal study</SourceLink> and <SourceLink path="code/sim/signal_attribution/approximate_study.py">approximate Shapley study</SourceLink> | §3.5 tables; approximate Shapley in §3.4 | Python 3.13; NumPy, SciPy, Polars, Matplotlib, CVXPY | Full signal sweep: about 6 hours of compute, summed over study units |
+| <SourceLink path="code/sim/signal_attribution/tests/test_attribution.py">Attribution tests</SourceLink> and <SourceLink path="code/sim/signal_attribution/tests/test_approximate.py">approximation tests</SourceLink> | Closed-form and CVXPY agreement; allocation and sampling checks | Study dependencies, pytest | 47 tests in about 12 s |
+
+</div>
+
+All times are from one local run and depend on hardware.
+
+From the extracted bundle, run `uv sync --group dev` to install the Python dependencies.
+These commands rerun the study of section 3.5 and print its tables:
+
+```sh
+uv run python -m sim.signal_attribution.run_local full results --workers 8
+uv run python -m sim.signal_attribution.summarise results
+```
+
+Its tests run with `uv run pytest sim/signal_attribution/tests`.

@@ -1,0 +1,28 @@
+/* Shared controls, palette and readable labels for all twelve trusted embeds. */
+[data-embed] {
+  --info-color: #187c9b;
+  --primary-color: #c65928;
+  --success-color: #35814c;
+  font-size: 14px;
+}
+[data-embed] * { box-sizing: border-box; }
+[data-embed] label { display: block !important; font-size: 14px !important; line-height: 1.5; }
+[data-embed] output { display: block; font-weight: 600; font-variant-numeric: tabular-nums; }
+[data-embed] input[type=range] { display: block; width: 100% !important; height: 28px; margin: 6px 0; accent-color: var(--info-color) !important; }
+[data-embed] select, [data-embed] button, [data-embed] input[type=number] { font: inherit; font-size: 14px; min-height: 32px; max-width: 100%; padding: 5px; }
+[data-embed] select { width: auto; min-width: 110px; }
+[data-embed] .controls { display: grid !important; grid-template-columns: repeat(auto-fit,minmax(min(100%,210px),1fr)) !important; gap: 12px 24px !important; }
+[data-embed] .panels { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,290px),1fr)); gap: 12px; }
+[data-embed] svg { display: block; width: 100%; height: auto; }
+[data-embed] svg text { fill: var(--text-color); font-family: sans-serif; }
+[data-embed] p, [data-embed] .key { font-size: 14px; line-height: 1.5; }
+[data-embed] table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+[data-embed] th, [data-embed] td { padding: 6px 2px; text-align: right; border-bottom: 1px solid var(--border-color); }
+[data-embed] th:first-child, [data-embed] td:first-child { text-align: left; }
+[data-embed] .legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; }
+/* Fixed-viewBox legacy plots need a larger base font to render >=13px. */
+[data-embed] .fig-c svg text { font-size: 17px; }
+@media (max-width: 600px) { [data-embed] .fig-c svg text { font-size: 18px; } }
+[data-embed] .f12-tradeoff svg text, [data-embed] .f11-ledger svg text { font-size: 13px; }
+[data-embed] .f5-shares svg text { font-size: 13px; }
+[data-embed] .f11-ledger { border: 1px solid var(--border-color); border-radius: 10px; padding: 14px; }

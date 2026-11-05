@@ -1,0 +1,40 @@
+{
+  "title": "Explaining a trading P&L: what finance knows about performance attribution, and what is open",
+  "authors": [
+    {
+      "family": "Sérié",
+      "given": "Emmanuel"
+    }
+  ],
+  "date": "2026-11-05",
+  "url": "https://attribution.serie-research.dev/attribution/",
+  "repository": "https://github.com/serie-research/pnl-attribution",
+  "text": "Sérié, E. (2026). Explaining a trading P&L: what finance knows about performance attribution, and what is open. https://attribution.serie-research.dev/attribution/",
+  "bibtex": "@misc{serie2026attribution,\n  author = {S{\\'e}ri{\\'e}, Emmanuel},\n  title = {Explaining a trading {P\\&L}: what finance knows about performance attribution, and what is open},\n  year = {2026},\n  month = nov,\n  url = {https://attribution.serie-research.dev/attribution/},\n  note = {Code: https://github.com/serie-research/pnl-attribution}\n}",
+  "reuse": {
+    "content": {
+      "licence": "CC BY 4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "scope": "the text, figures, infographics and presentation"
+    },
+    "code": {
+      "licence": "the MIT licence",
+      "url": "https://opensource.org/license/mit",
+      "scope": "the code (simulation package, figure exporters, notebook, page scripts, embeds and presentation view)"
+    },
+    "excluded": "Quoted passages, cited results and bibliographic metadata belong to their authors and publishers. Adapted and third-party components keep their own licences, listed in the notice file, NOTICE.md.",
+    "figures": "All figures and diagrams are original; numbers taken from published papers are cited in their captions.",
+    "adapted": [
+      {
+        "author": "Thibaud Frere",
+        "work": "research article template",
+        "url": "https://huggingface.co/spaces/tfrere/research-article-template"
+      },
+      {
+        "author": "David Louapre",
+        "work": "NLP before LLMs course page",
+        "url": "https://huggingface.co/spaces/dlouapre/nlp-before-llms"
+      }
+    ]
+  }
+}

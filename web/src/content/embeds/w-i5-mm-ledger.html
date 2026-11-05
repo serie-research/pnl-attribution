@@ -1,0 +1,92 @@
+<div class="w-i5">
+  <p class="heading">A hypothetical fill: one share bought</p>
+  <svg class="ledger" role="group" aria-label="Prices in euros on one linear vertical scale, from the fill to a later midprice."></svg>
+  <div class="equations" aria-label="Accounting for the fill"></div>
+  <p class="note">Amounts in euros. No rebate, hedge or liquidation cost.</p>
+  <p class="hint">Hover or focus a bracket or formula to highlight its price segment.</p>
+</div>
+<style>
+[data-embed] .w-i5 { padding: 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--page-bg); color: var(--text-color); font: 14px/1.5 var(--default-font-family, sans-serif); --spread: var(--info-color); --position: var(--primary-color); }
+[data-theme="dark"] [data-embed] .w-i5 { --spread: color-mix(in srgb, var(--info-color) 75%, white); }
+[data-embed] .w-i5 p { margin: 0; }
+[data-embed] .w-i5 .heading { font-weight: 600; }
+[data-embed] .w-i5 svg { display: block; width: 100%; overflow: visible; margin: 8px 0; }
+[data-embed] .w-i5 svg text { font: 13px var(--default-font-family, sans-serif); fill: currentColor; }
+[data-embed] .w-i5 .segment { fill: none; stroke: currentColor; stroke-width: 2; }
+[data-embed] .w-i5 [data-term="spread"] { color: var(--spread); }
+[data-embed] .w-i5 [data-term="position"] { color: var(--position); }
+[data-embed] .w-i5 .bracket { cursor: default; outline: none; }
+[data-embed] .w-i5 .hit { fill: transparent; }
+[data-embed] .w-i5 .formula { padding: 10px; margin: 4px 0; border: 1px solid transparent; border-radius: 6px; outline: none; }
+[data-embed] .w-i5 .formula strong, [data-embed] .w-i5 .formula span { display: block; }
+[data-embed] .w-i5 .formula span { font-variant-numeric: tabular-nums; }
+[data-embed] .w-i5 .active.formula, [data-embed] .w-i5 .formula:focus-visible { border-color: currentColor; background: color-mix(in srgb, currentColor 7%, transparent); }
+[data-embed] .w-i5 .active .segment { stroke-width: 4; }
+[data-embed] .w-i5 .bracket:focus-visible .hit { stroke: currentColor; stroke-width: 1; stroke-dasharray: 3 3; }
+[data-embed] .w-i5 .note, [data-embed] .w-i5 .hint { color: var(--muted-color); font-size: 12px; margin-top: 8px; }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const box = root.querySelector('.w-i5'), svgEl = box.querySelector('svg');
+  let data;
+  const money = value => value.toFixed(2);
+  const signed = value => (value < 0 ? '−' : '+') + money(Math.abs(value));
+  function highlight() {
+    const focused = box.querySelector(':focus[data-term]');
+    const hovered = box.querySelector('[data-term]:hover');
+    const term = (focused || hovered)?.dataset.term;
+    box.querySelectorAll('[data-term]').forEach(el => el.classList.toggle('active', !!term && (term === 'total' || el.dataset.term === term)));
+  }
+  function render() {
+    if (!data) return;
+    const focusTerm = svgEl.contains(document.activeElement) && document.activeElement.dataset.term;
+    const W = svgEl.clientWidth, narrow = W < 450;
+    const svg = d3.select(svgEl); svg.selectAll('*').remove();
+    svg.attr('viewBox', `0 0 ${W} 350`).attr('height', 350);
+    const x0 = narrow ? 38 : 80, x1 = W - 28;
+    const y = d3.scaleLinear().domain([data.later, data.before]).range([268, 68]);
+    const line = (parent, a, b, cls = '') => parent.append('line').attr('class', cls).attr('x1', a[0]).attr('y1', a[1]).attr('x2', b[0]).attr('y2', b[1]);
+    const text = (parent, value, x, yy, anchor = 'start') => parent.append('text').attr('x', x).attr('y', yy).attr('text-anchor', anchor).text(value);
+    // One common price scale: the spread is 2/5 of the positioning distance.
+    line(svg, [x0, y(data.before)], [x1, y(data.before)]).attr('stroke', 'var(--muted-color)').attr('stroke-dasharray', '4 4');
+    line(svg, [x1, y(data.before)], [x1, y(data.later)]).attr('stroke', 'var(--border-color)');
+    for (const [x, price] of [[x0, data.before], [x0, data.fill], [x1, data.later]]) {
+      svg.append('circle').attr('cx', x).attr('cy', y(price)).attr('r', 4).attr('fill', 'currentColor');
+    }
+    text(svg, `Midprice before: ${money(data.before)}`, 0, 44);
+    text(svg, 'Fill price', 0, 174);
+    text(svg, money(data.fill), 0, 192);
+    text(svg, `Later midprice: ${money(data.later)}`, W, 292, 'end');
+    function bracket(term, x, top, bottom, label, value, tx, ty, anchor) {
+      const g = svg.append('g').attr('class', 'bracket').attr('data-term', term).attr('tabindex', 0).attr('role', 'group').attr('aria-label', `${label}: ${value} euros`);
+      g.append('rect').attr('class', 'hit').attr('x', x - 10).attr('y', top - 8).attr('width', 20).attr('height', bottom - top + 16).attr('rx', 5);
+      g.append('path').attr('class', 'segment').attr('d', `M${x-6},${top}H${x}V${bottom}H${x-6}`);
+      text(g, label, tx, ty, anchor); text(g, value, tx, ty + 18, anchor);
+    }
+    bracket('spread', x0 + 28, y(data.before), y(data.fill), 'Spread before fees', money(data.before - data.fill), x0 + 40, 102, 'start');
+    bracket('position', x1 + 14, y(data.before), y(data.later), 'Positioning', signed(data.later - data.before), x1 - 8, 222, 'end');
+    line(svg, [x0, 320], [x1, 320]).attr('stroke', 'var(--muted-color)');
+    for (const [x, label] of [[x0, 'Fill'], [x1, 'Later']]) {
+      line(svg, [x, 316], [x, 324]).attr('stroke', 'var(--muted-color)');
+      text(svg, label, x, 344, 'middle');
+    }
+    text(svg, 'Time →', (x0 + x1) / 2, 313, 'middle');
+    if (focusTerm) svgEl.querySelector(`[data-term="${focusTerm}"]`)?.focus({ preventScroll: true });
+    highlight();
+  }
+  ['pointerover', 'pointerout', 'focusin', 'focusout'].forEach(event => box.addEventListener(event, () => queueMicrotask(highlight)));
+  d3.json(root.dataset.url).then(d => {
+    data = d;
+    const spread = d.before - d.fill - d.fees, position = d.later - d.before;
+    const formulas = [
+      { term: 'spread', title: 'Net spread = midprice before − fill price − fees', equation: `${money(d.before)} − ${money(d.fill)} − ${money(d.fees)} = ${signed(spread)}` },
+      { term: 'position', title: 'Positioning = later midprice − midprice before', equation: `${money(d.later)} − ${money(d.before)} = ${signed(position)}` },
+      { term: 'total', title: 'P&L after fees = net spread + positioning', equation: `${signed(spread)} − ${money(Math.abs(position))} = ${signed(spread + position)}` }
+    ];
+    const rows = d3.select(box.querySelector('.equations')).selectAll('div').data(formulas).join('div').attr('class', 'formula').attr('tabindex', 0).attr('role', 'group').attr('data-term', d => d.term);
+    rows.append('strong').text(d => d.title); rows.append('span').text(d => d.equation);
+    new ResizeObserver(render).observe(svgEl); render(); box.dataset.ready = 'true';
+  }).catch(error => { box.textContent = `Could not load figure: ${error.message}`; });
+})();
+</script>

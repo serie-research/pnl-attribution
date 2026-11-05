@@ -1,0 +1,427 @@
+{
+  "_comment": "Web slide deck of the talk (/attribution/slides/), in talk order (talk/draft.md). Each content slide is read without the speaker: a title that states the claim, three to five bullets, optionally one formula, one number and one page figure, a takeaway line and a source line (page section, paper and locator); then the speaker's notes (cue lines of the draft) and the page anchor. Checked at build by src/scripts/slides.js.",
+  "slides": [
+    {
+      "kind": "title",
+      "title": "Explaining a trading P&L",
+      "subtitle": "What finance knows about performance attribution, and what is open",
+      "author": "Emmanuel Sérié",
+      "date": "5 November 2026",
+      "section": "introduction",
+      "notes": [
+        "Paste the link in the Teams chat."
+      ]
+    },
+    {
+      "title": "Attribution assigns the desk's P&L to signals, positions and costs",
+      "bullets": [
+        "A P&L is an amount accumulated over an interval, positive or negative",
+        "Classification rates do not add up to a P&L in currency",
+        "Overlapping indicators count one episode twice unless a rule shares it",
+        "Whether to drop or resize a signal is a separate question"
+      ],
+      "takeaway": "Contributions must sum to the P&L, with a residual for the rest",
+      "figure": "w-i0-route",
+      "source": "Introduction",
+      "section": "introduction",
+      "notes": [
+        "Today's question: how much of the P&L goes to each signal, each position, each cost.",
+        "Three obstacles: a P&L accumulates over an interval, amounts must add up, indicators overlap.",
+        "Sections 1 to 3 share money. Section 4 shares what correlated indicators predict.",
+        "Every number comes from a published paper or our own simulation. No desk data.",
+        "“To follow the money, the desk first has to say which amount it wants to explain.”"
+      ]
+    },
+    {
+      "title": "Four choices define the attribution before any split",
+      "bullets": [
+        "Reference: a paper portfolio, or positions marked at the midprice",
+        "The reference sets the amount to explain, so contributions change with it",
+        "Interval, information and indicator kind fix the remaining terms of the split",
+        "The residual is reported as its own term"
+      ],
+      "formula": "\\Pi-\\Pi^{\\mathrm{ref}}=\\sum_j \\Pi_j+\\varepsilon",
+      "takeaway": "A sum that closes checks the accounting; it explains nothing alone",
+      "figure": "w-i1-attribution",
+      "source": "§1",
+      "section": "1-what-it-means-to-attribute-a-pl",
+      "notes": [
+        "Four choices before any split: reference, interval, information, indicator kind.",
+        "The reference sets what we subtract, so it changes the amount to explain.",
+        "The residual gets its own bar. A sum that closes checks the accounting, not a cause.",
+        "For this desk: one set of fill records for physical and financial positions, by delivery quarter-hour."
+      ]
+    },
+    {
+      "title": "An attribution depends on what was known at each decision",
+      "bullets": [
+        "Ex ante: exposures and a risk model recorded before returns occur",
+        "Ex post: the same exposures combined with realised returns",
+        "Grinold and Kahn judge skill on bets declared in advance",
+        "Exposures fitted after the P&L test an explanation chosen with hindsight",
+        "Currency P&L adds up across periods; percentage returns compound"
+      ],
+      "formula": "R=\\prod_t(1+R_t)-1\\neq\\sum_t R_t",
+      "takeaway": "Working in currency avoids linking rules, yet still needs reference prices",
+      "source": "§1.2; Grinold and Kahn (2000, p. 479)",
+      "section": "12-information-and-accounting-interval",
+      "notes": [
+        "Timing: a forecast known at decision time is an input. Tomorrow's forecast error is an outcome."
+      ]
+    },
+    {
+      "title": "Signals drive trades; state indicators describe market conditions",
+      "bullets": [
+        "A signal enters the policy and may change its trades",
+        "Spread, volatility and market order flow are state indicators",
+        "Inventory and own orders come from the signals, so they belong with the policy",
+        "A volatility forecast fed to the policy is a signal; realised volatility, a state indicator"
+      ],
+      "takeaway": "Section 2.5 splits the fill records; section 4 relates each part to state indicators",
+      "source": "§1.3",
+      "section": "13-two-kinds-of-indicator",
+      "notes": [
+        "A signal enters the algorithm and changes trades. A state indicator only describes the market."
+      ]
+    },
+    {
+      "title": "Brinson splits active return into allocation, selection and interaction",
+      "bullets": [
+        "Portfolio 60% in segment A, 40% in B; the benchmark holds the reverse",
+        "Segment returns: benchmark 600 and 200 bp, portfolio 800 and 100 bp",
+        "Allocation weights segments differently; selection picks better stocks within them",
+        "Folding interaction into selection changes the terms, never the total"
+      ],
+      "number": {
+        "value": "80 + 20 + 60 = 160 bp",
+        "label": "allocation, selection and interaction sum to the active return"
+      },
+      "takeaway": "The total is fixed; the split depends on the convention",
+      "figure": "d3-f1-brinson",
+      "source": "§2.1; Brinson and Fachler (1985, Eqs. 3–7, pp. 75–76)",
+      "section": "21-allocation-selection-interaction",
+      "notes": [
+        "Brinson: allocation 80, selection 20, interaction 60. Together they make the 160 basis points."
+      ]
+    },
+    {
+      "title": "Euler's theorem splits portfolio volatility into contributions that add up",
+      "bullets": [
+        "Returns split additively; risk does not, because positions co-move",
+        "Volatility scales with the portfolio, so Euler's theorem applies",
+        "Each contribution depends on the position's covariance with the whole portfolio",
+        "Litterman's hot-spots report lists them next to the position sizes",
+        "A hedge can contribute negatively; the largest position need not dominate"
+      ],
+      "formula": "\\sigma(x)=\\sum_i \\mathrm{RC}_i,\\qquad \\mathrm{RC}_i=\\frac{x_i(\\Sigma x)_i}{\\sigma(x)}",
+      "takeaway": "The split allocates volatility, not the realised P&L of a day",
+      "source": "§2.3; Litterman (1996, Exhibit 13, p. 60)",
+      "section": "23-factor-return-and-factor-risk",
+      "notes": [
+        "Euler: the risk contributions add up to the volatility. A hedge can be negative.",
+        "“Your forecasting models already produce attributions, so here is what those attributions measure.”"
+      ]
+    },
+    {
+      "title": "For correlated indicators, the game sets what a share means",
+      "bullets": [
+        "The policy may ignore state indicators, or we may be unable to rerun it",
+        "A fitted model then links the indicators to an outcome, such as daily P&L",
+        "A game gives the value $v(S)$ of every subset $S$ of indicators",
+        "Shapley share: an indicator's gain on joining, averaged over all orders of entry"
+      ],
+      "formula": "\\sum_k \\phi_k = v(N)-v(\\varnothing)",
+      "takeaway": "The game sets the units, baseline and meaning of each share",
+      "figure": "w-i4-shared-information",
+      "source": "§4",
+      "section": "4-correlated-indicators-and-the-value-of-a-subset",
+      "notes": [
+        "Your libraries give SHAP values. Here the algorithm may not read the indicators, so no reruns.",
+        "The diagram uses the conditional game. Most libraries compute the interventional one."
+      ]
+    },
+    {
+      "title": "Coefficients swing between near-copies; Shapley gives each about half",
+      "bullets": [
+        "A regression predicts the joint effect of near-copies well, yet cannot separate them",
+        "At high correlation, A's coefficient runs from about −0.9 to 2.5",
+        "Their sum stays near 2: the data fix only what the pair does together",
+        "Shapley of $R^2$ refits each subset's regression and averages over orders"
+      ],
+      "number": {
+        "value": "48–51%",
+        "label": "A's Shapley share of what the pair explains"
+      },
+      "takeaway": "A stable share is neither causal nor a test of significance",
+      "figure": "d3-f7-correlated",
+      "source": "§4.1; Lipovetsky and Conklin (2001, Table II, p. 329)",
+      "section": "41-shared-information-is-not-a-regression-coefficient",
+      "notes": [
+        "As the two indicators become alike, the coefficients swing and their sum stays near 2.",
+        "Shapley on R squared gives A about half. Stable, but neither causal nor significant."
+      ]
+    },
+    {
+      "title": "A SHAP value splits a forecast; a P&L share splits money",
+      "bullets": [
+        "Refitted $R^2$: shares of the day-to-day variation a regression fits",
+        "Local SHAP: one day's prediction minus the average, in the model's units",
+        "Interventional SHAP explains the model; conditional SHAP also credits correlated indicators",
+        "SAGE: the reduction in prediction error when the model uses these indicators"
+      ],
+      "formula": "\\phi_k(v)=\\sum_{S\\subseteq N\\setminus\\{k\\}}\\omega(S)\\,\\big[v(S\\cup\\{k\\})-v(S)\\big]",
+      "takeaway": "These shares measure predictive information, not realised P&L",
+      "source": "§4.2",
+      "section": "42-the-game-comes-before-the-allocation",
+      "notes": [
+        "A SHAP value splits a forecast in its own units. A share of P&L splits money."
+      ]
+    },
+    {
+      "title": "A top share counts only if it beats the top share on shuffled P&L",
+      "bullets": [
+        "A model fitted to noise still returns shares, and one of them is largest",
+        "Block shuffling keeps the P&L's time dependence and breaks its link to indicators",
+        "Comparing top share with top share accounts for picking the largest",
+        "Knockoffs give each indicator a fair competitor; they select variables, allocating no profit"
+      ],
+      "takeaway": "The comparison says whether any indicator predicts the outcome",
+      "source": "§4.3",
+      "section": "43-importance-needs-a-comparison-under-the-null",
+      "notes": [
+        "Null comparison: shuffle the P&L in blocks and recompute. The top share must beat that.",
+        "“To split money, we go back to the book itself.”"
+      ]
+    },
+    {
+      "title": "Signal attribution needs reruns of the policy or its equations",
+      "bullets": [
+        "The portfolio holds one position built from $K$ forecasts, the signals",
+        "One signal's purchase may reinforce another, offset it, or change nothing",
+        "Stand-alone proxies, leave-one-out and Shapley need a policy we can rerun",
+        "Durin and Grinold–Easton need a known optimiser and its multipliers"
+      ],
+      "takeaway": "A signal's contribution means something different in each method, because the inputs differ",
+      "figure": "w-i3-method-map",
+      "source": "§3",
+      "section": "3-attributing-a-pl-to-signals",
+      "notes": [
+        "The fill records, the ledger of section 2.5, split by leg or fill. No optimiser."
+      ]
+    },
+    {
+      "title": "Durin splits the optimiser's position into one position per signal",
+      "bullets": [
+        "With the binding constraints fixed, the optimal trade is affine in the forecasts",
+        "Each signal's trade responds to its forecast and the position it already holds",
+        "The signal positions add up to the joint position, with no rerun",
+        "Each signal receives its piece's P&L and a share of joint risk and cost"
+      ],
+      "formula": "\\Delta x_t^k=Q^{-1}\\big(g_t^k-P\\,x_{t-1}^k\\big),\\qquad x_t=\\sum_k x_t^k",
+      "takeaway": "It needs a known convex optimiser with a quadratic risk or cost term",
+      "source": "§3.3; Durin (2014, Eqs. 8–12, p. 6)",
+      "section": "33-using-the-optimisers-internal-equations",
+      "notes": [
+        "By signal: the optimiser's equations, as in Durin, or reruns of the policy."
+      ]
+    },
+    {
+      "title": "In a linear book, holdings and signal splits sum to the same P&L",
+      "bullets": [
+        "Assumed: mean-variance book, no trading cost, no position bound",
+        "$\\gamma$ and $\\Sigma$ frozen at their realised values, so no rerun",
+        "$X$, by holdings: asset $i$ receives $x_i r_i$ of the gross P&L",
+        "$D$, by signals: signal $k$ receives $\\gamma^{-1}(g^k)^\\top\\Sigma^{-1}r$",
+        "One forecast per asset, coalitions keep the full $\\Sigma^{-1}$: Shapley gives $(X_i+D_i)/2$"
+      ],
+      "formula": "x=\\gamma^{-1}\\Sigma^{-1}G,\\quad G=\\sum_k g^k,\\quad \\sum_i X_i=\\sum_k D_k=x^\\top r",
+      "takeaway": "A game removing only signals gives $D$; start/stop constraints fall outside",
+      "source": "Talk canvas; §2.3, §3.3 with no spread, §3.5",
+      "section": "3-attributing-a-pl-to-signals",
+      "notes": [
+        "Linear book: split by holdings X, split by signals D. Both sum to the P&L, no rerun."
+      ]
+    },
+    {
+      "title": "Shapley averages each signal's gain over every order of entry",
+      "bullets": [
+        "A coalition's value is the P&L of a rerun with only its signals",
+        "Stand-alone value: the signal's marginal contribution when it enters first",
+        "Leave-one-out: its marginal contribution when it enters last",
+        "The shares sum to the full P&L minus the reference policy's P&L"
+      ],
+      "number": {
+        "value": "256",
+        "label": "coalition values for eight signals, by exact enumeration"
+      },
+      "takeaway": "Up to eight signals, no sampler needed fewer values than exact enumeration",
+      "figure": "d3-f6-coalitions",
+      "source": "§3.4; Shapley (1953; RM-670, pp. 12–13)",
+      "section": "34-sharing-value-across-coalitions",
+      "notes": [
+        "Shapley averages over every order. Stand-alone is the signal first, leave-one-out the signal last.",
+        "The cost is two to the K backtests. Up to eight signals, enumerate exactly."
+      ]
+    },
+    {
+      "title": "With a large spread, stand-alone proxies miss what signals earn together",
+      "bullets": [
+        "Durin rejects proxy regressions as a general method: binding constraints leave residuals",
+        "At a spread of 2.0 std(G), three of four signals never trade alone",
+        "Together they clear the spread; Durin's split pays all four signals",
+        "Base case: proxy distance from Durin 0.19, Shapley games 0.045 and 0.037"
+      ],
+      "number": {
+        "value": "42%",
+        "label": "of P&L variance in the proxy residual, base case"
+      },
+      "takeaway": "Joint trades that no proxy mix matches end in the residual",
+      "figure": "d3-f13-pnl-paths",
+      "source": "§3.1, §3.5; Durin (2014, pp. 2–3)",
+      "section": "35-what-the-synthetic-comparison-finds",
+      "notes": [
+        "§3.5: the P&L paths figure on the large-spread scenario, then the bar figure across seeds.",
+        "Large spread: three of four signals never trade alone. The proxy sees nothing, together they earn."
+      ]
+    },
+    {
+      "title": "Across seeds, both Shapley games stay within 0.12 of Durin",
+      "bullets": [
+        "Durin is the benchmark here, because its split is exact for this optimiser",
+        "Larger spread, more signals or higher correlation push proxy shares away",
+        "The proxy residual grows along the same sweeps",
+        "Whiskers show dispersion across seeds, not the uncertainty for a real desk"
+      ],
+      "number": {
+        "value": "≤ 0.12",
+        "label": "half-L1 distance between Shapley and Durin mean shares"
+      },
+      "takeaway": "Agreement with Durin does not make a contribution the only correct one",
+      "figure": "d3-f5-signal-attribution",
+      "source": "§3.5",
+      "section": "35-what-the-synthetic-comparison-finds",
+      "notes": [
+        "“That leaves two research projects, one on the amounts and one on the signals.”"
+      ]
+    },
+    {
+      "title": "Two research projects start in simulation, where the answer is known",
+      "bullets": [
+        "5.1 Fill records: the markout horizon that sets the reference price",
+        "5.2 Signals: when a cheap method can replace full reruns",
+        "5.3 Later: state indicators and policies without usable equations",
+        "Projects 5.1 and 5.2 fix in advance the result that would stop them"
+      ],
+      "takeaway": "A planted answer lets each method be checked against the truth",
+      "source": "§5",
+      "section": "5-research-directions",
+      "notes": [
+        "One row per project: question, decision, first experiment, stop rule.",
+        "Both start in simulation, where the answer is known."
+      ]
+    },
+    {
+      "title": "The reference price moves money between spread and positioning",
+      "bullets": [
+        "One purchase at €99.98; midprice €100.00 before the fill, €99.95 after",
+        "Fee €0.01; P&L after fees, marked at the later midprice, is −€0.04",
+        "Reference before the fill: net spread +€0.01, positioning −€0.05",
+        "Reference at the later midprice: net spread −€0.04, positioning zero"
+      ],
+      "formula": "d_i(m_T-p_i)=d_i(\\rho_i-p_i)+d_i(m_T-\\rho_i)",
+      "number": {
+        "value": "−€0.04",
+        "label": "marked P&L after fees, under either reference"
+      },
+      "takeaway": "Menkveld's market maker: €1.55 per trade net spread, −€0.68 positioning",
+      "figure": "w-i5-mm-ledger",
+      "source": "§2.5; Menkveld (2013, pp. 16, 33)",
+      "section": "25-spread-and-inventory-a-market-makers-pl",
+      "notes": [
+        "One fill: mid 100, we buy at 99.98 with a one-cent fee, then mid 99.95.",
+        "Minus four cents: plus one net spread, minus five positioning; against the later mid, minus four net spread, zero positioning."
+      ]
+    },
+    {
+      "title": "The markout horizon where reversion stops sets the reference price",
+      "bullets": [
+        "Desks measure markouts at 1 s, 10 s, 1 min, 5 min and longer",
+        "The simulation plants a permanent price impact and a transitory one",
+        "The price move up to that horizon should recover the planted impact",
+        "We stop if the miss exceeds a tolerance fixed in advance, say ±10%"
+      ],
+      "takeaway": "Without that check, the split adds up yet hides losses to informed counterparties",
+      "source": "§5.1; Menkveld (2013, pp. 21–23)",
+      "section": "51-a-reference-price-for-the-ledger",
+      "notes": [
+        "Markouts from one second to five minutes show when the price move after a fill stops reverting.",
+        "The markout horizon sets the reference. We plant a known permanent impact and stop if we miss it.",
+        "“Once the amounts are fixed, the second project asks how much each signal earned.”"
+      ]
+    },
+    {
+      "title": "Three uses of a signal attribution need three different quantities",
+      "bullets": [
+        "Reporting: Shapley shares over reruns, above a declared reference policy",
+        "Dropping: net P&L lost when only that signal is removed, on held-out days",
+        "Resizing: the value of a small change in the signal's weight",
+        "Target: all three computed from every rerun on the simulator",
+        "One-history 90% error bars must contain the many-history average in 90% of histories"
+      ],
+      "takeaway": "We stop if no cheap method meets its tolerance near the desk's settings",
+      "source": "§5.2",
+      "section": "52-signals-how-much-each-one-earned",
+      "notes": [
+        "Three uses, three numbers: Shapley to report, removal loss to drop, a marginal value to resize.",
+        "On a simulator all three are exact. We measure how far each cheap method sits.",
+        "Error bars from one history must contain the many-history average nine times in ten.",
+        "We stop if no cheap method meets its tolerance, or if the bars do not cover."
+      ]
+    },
+    {
+      "title": "Later work: state indicators and policies without usable equations",
+      "bullets": [
+        "State indicators: relate spread and inventory P&L to market conditions",
+        "These shares divide predictive information, not realised P&L",
+        "Opaque policies: a surrogate must first reproduce the policy on held-out cases",
+        "Each removal operator on the surrogate's inputs defines a different attribution"
+      ],
+      "takeaway": "Their stopping rules will be set once 5.1 and 5.2 have results",
+      "source": "§5, §5.3",
+      "section": "53-state-indicators-and-opaque-policies",
+      "notes": [
+        "Later: spread and inventory P&L against market conditions, and policies whose rules we cannot read.",
+        "“That brings us to what the desk could test first.”"
+      ]
+    },
+    {
+      "title": "The citation graph places each paper read by year and topic",
+      "bullets": [
+        "Papers sit by year, left to right, in three topic bands",
+        "Bands: classical attribution and risk; signals and Shapley; market making and execution",
+        "Filled circles are papers this page cites",
+        "Arrows point from a paper to the papers it cites",
+        "Twelve other cited works are not drawn"
+      ],
+      "takeaway": "Selecting a paper shows its summary and the sections that cite it",
+      "figure": "w-citation-graph",
+      "source": "References",
+      "section": "citation-graph",
+      "notes": [
+        "The graph: year left to right, one band per theme, filled circles are the papers cited."
+      ]
+    },
+    {
+      "kind": "closing",
+      "title": "The page links its code, data and references",
+      "section": "code-and-data",
+      "notes": [
+        "An attribution starts with reference, interval, information and indicators.",
+        "SHAP splits a forecast, a P&L share splits money. By signal needs equations or reruns.",
+        "First step: split the fill records (section 2.5, project 5.1); it needs no optimiser.",
+        "The QR code opens the page, with the code or data behind every figure.",
+        "“To open the discussion: how does the desk define its P&L, and which records does it already keep?”"
+      ]
+    }
+  ]
+}

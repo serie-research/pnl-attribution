@@ -1,0 +1,99 @@
+---
+// An optional reading: a tangent that most readers can skip. Folded when the page opens, it shows
+// a single line, a book icon, "Optional" and "**title**: subtitle", and a click unfolds its content
+// (markdown). Its border has its own color, --optional-color, apart from the orange of the post and
+// the blue of the exercises. A margin note about the same topic goes right after the closing tag,
+// so that it stays visible when folded.
+//   <Optional title="Latent Semantic Analysis" subtitle="another way to get dense vectors">...</Optional>
+// Consecutive optional readings are drawn as one list. A link to its id opens it.
+interface Props {
+  title: string;
+  subtitle?: string;
+  id?: string;
+}
+const { title, subtitle, id } = Astro.props as Props;
+---
+<details class="optional" id={id}>
+  <summary class="optional__summary">
+    <svg class="optional__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" /></svg>
+    <span class="optional__tag">Optional</span>
+    <span class="optional__heading"><strong>{title}</strong>{subtitle && <>: {subtitle}</>}</span>
+    <svg class="optional__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+  </summary>
+  <div class="optional__content"><slot /></div>
+</details>
+
+<script>
+  // A link to an optional reading, or to something inside it, opens it
+  const openTarget = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const box = id ? document.getElementById(id)?.closest<HTMLDetailsElement>("details.optional") : null;
+    if (box) box.open = true;
+  };
+  window.addEventListener("hashchange", openTarget);
+  document.addEventListener("DOMContentLoaded", openTarget);
+</script>
+
+<style is:global>
+  :root {
+    --optional-color: oklch(0.65 0.11 160);
+    /* For text: darker in the light theme, lighter in the dark theme */
+    --optional-text-color: color-mix(in oklab, var(--optional-color) 70%, var(--text-color));
+  }
+  .optional {
+    margin: var(--spacing-3) 0;
+    border: 1px solid color-mix(in oklab, var(--optional-color) 60%, var(--border-color));
+    border-radius: 10px;
+  }
+  .optional + .optional { margin-top: calc(-1 * var(--spacing-3) - 1px); border-top-left-radius: 0; border-top-right-radius: 0; }
+  .optional:has(+ .optional) { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .optional__summary {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 9px 14px;
+    list-style: none;
+    cursor: pointer;
+    border-radius: 9px;
+  }
+  .optional__summary::-webkit-details-marker { display: none; }
+  .optional__summary::marker { content: ""; }
+  .optional__summary:hover { background: color-mix(in oklab, var(--optional-color) 6%, transparent); }
+  .optional__summary:focus-visible { outline: 2px solid var(--optional-color); outline-offset: -2px; }
+  .optional[open] > .optional__summary { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .optional__icon {
+    flex: 0 0 auto;
+    position: relative;
+    top: 3px;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--optional-color);
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .optional__tag {
+    flex: 0 0 auto;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--optional-text-color);
+  }
+  .optional__heading { flex: 1 1 auto; }
+  .optional__chevron {
+    flex: 0 0 auto;
+    align-self: center;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: var(--muted-color);
+    stroke-width: 2;
+    transition: transform 0.15s ease;
+  }
+  .optional[open] > .optional__summary .optional__chevron { transform: rotate(90deg); }
+  .optional__content { padding: 2px 16px 14px 40px; }
+  .optional__content > :first-child { margin-top: 0; }
+  .optional__content > :last-child { margin-bottom: 0; }
+</style>

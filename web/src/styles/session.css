@@ -1,0 +1,67 @@
+@import './_variables.css';
+* { box-sizing: border-box; }
+html { font-family: var(--default-font-family); color: var(--text-color); background: var(--page-bg); line-height: 1.65; }
+body { margin: 0; }
+header, nav, main, footer { width: min(720px, calc(100% - 40px)); margin: 32px auto; }
+h1 { font-size: clamp(1.9rem, 4vw, 2.8rem); line-height: 1.2; }
+h2 { margin-top: 48px; font-size: 1.5rem; line-height: 1.35; color: var(--heading-color); }
+h3 { line-height: 1.4; }
+a { color: var(--link-color); text-underline-offset: 3px; }
+.draft, footer { color: var(--muted-color); font-size: .9rem; }
+nav { border-block: 1px solid var(--border-color); padding-block: 12px; }
+summary { cursor: pointer; }
+pre { padding: 14px; background: var(--code-bg); overflow-x: auto; max-width: 100%; font-size: .85rem; }
+code { font-family: var(--font-mono); }
+.katex-display { overflow-x: auto; overflow-y: hidden; padding-block: 6px; }
+figure { margin: 24px 0; }
+img, svg { max-width: 100%; }
+footer { border-top: 1px solid var(--border-color); padding-top: 20px; }
+.sidenote-wrapper { display: flow-root; position: relative; }
+.sidenote-container { margin: 16px 0; }
+@media (min-width: 1200px) {
+  header, nav, main, footer { transform: translateX(-130px); }
+  .sidenote-container { position: absolute; left: calc(100% + 40px); width: 240px; margin: 0; }
+}
+@media (max-width: 480px) {
+  .exercise__header { padding: 12px !important; gap: 8px !important; }
+  .exercise__heading { flex-wrap: wrap; }
+  .exercise__body { padding: 12px !important; }
+  .optional__summary { flex-wrap: wrap; }
+  .optional__content { padding-left: 16px !important; }
+  .placeholder-toggle { position: static !important; display: block; margin: 16px auto; }
+}
+
+/* Section index: headings carry their own numbers; the introduction has none. */
+#sections .section-list { list-style: none; padding-left: 0; }
+#sections .section-list ul { list-style: none; padding-left: 1.25rem; }
+#sections .section-list li { margin: .25rem 0; }
+
+/* Theme: heading and link colours, code highlighting, toggle. */
+:root { --heading-color: #904b20; --link-color: #335b9d; }
+[data-theme="dark"] { --heading-color: #e3a27a; --link-color: #93b4ef; }
+[data-theme="dark"] .astro-code, [data-theme="dark"] .astro-code span { color: var(--shiki-dark) !important; }
+[data-theme="dark"] .astro-code:not(.exercise .astro-code) { background-color: var(--shiki-dark-bg) !important; }
+header { position: relative; }
+#theme-toggle { position: absolute; top: 0; right: 0; width: 36px; height: 36px; padding: 7px; border: 1px solid var(--border-color); border-radius: 50%; background: var(--page-bg); color: var(--text-color); cursor: pointer; }
+#theme-toggle:hover { border-color: var(--muted-color); }
+#theme-toggle:focus-visible { outline: 2px solid var(--link-color); outline-offset: 2px; }
+#theme-toggle svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#theme-toggle .icon-sun, [data-theme="dark"] #theme-toggle .icon-moon { display: none; }
+[data-theme="dark"] #theme-toggle .icon-sun { display: block; }
+header h1 { padding-right: 48px; }
+
+/* Wide figures break out of the text column, centred on the viewport. */
+.figure-wide { --wide: min(1160px, calc(100vw - 40px)); width: var(--wide); margin-left: calc((100% - var(--wide)) / 2); }
+@media (min-width: 1200px) { .figure-wide { transform: translateX(130px); } }
+
+/* Keep the reproduction catalogue readable on narrow screens. */
+.code-data-table { max-width: 100%; overflow-x: auto; }
+.code-data-table table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: .9rem; }
+.code-data-table th, .code-data-table td { padding: 8px; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; }
+
+/* Reuse and Citation sections */
+.citation-text, .citation-bibtex { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8rem; padding: 12px; border: 1px solid var(--border-color); border-radius: 4px; }
+
+/* Link to the presentation view under the title */
+.present { margin: 2px 0 0; font-size: .8rem; }
+.present a { color: var(--muted-color); text-decoration-color: var(--border-color); }

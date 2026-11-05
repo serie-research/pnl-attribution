@@ -1,0 +1,81 @@
+<div class="f5-shares">
+  <div class="controls"></div>
+  <p class="parameters"></p>
+  <p>One axis varies at a time; other parameters stay at the base configuration. Bars: mean share of cumulative net P&amp;L. Whiskers: ±1 sample standard deviation across seeds.</p>
+  <div class="charts"></div>
+  <p class="status" role="status"></p>
+</div>
+<style>
+.f5-shares { border:1px solid var(--border-color); border-radius:8px; padding:12px; }
+.f5-shares .controls { display:flex; flex-wrap:wrap; gap:12px; }
+.f5-shares label { display:flex; flex-direction:column; gap:4px; font-size:14px; }
+.f5-shares select { max-width:100%; background:var(--surface-bg); color:var(--text-color); }
+.f5-shares .method { margin-top:18px; }
+.f5-shares h4 { margin:0; font-size:16px; }
+.f5-shares svg { display:block; width:100%; }
+.f5-shares svg text { fill:var(--text-color); font:14px sans-serif; }
+.f5-shares p { font-size:14px; }
+@media(max-width:600px) { .f5-shares svg text {font-size:23px;} }
+</style>
+<script>
+(() => {
+  const host=document.currentScript.closest('[data-embed]');
+  const root=host.querySelector('.f5-shares');
+  const status=root.querySelector('.status');
+  d3.json(host.dataset.url).then(data=>{
+    const controls=root.querySelector('.controls');
+    function select(label) {
+      const l=document.createElement('label'); l.textContent=label;
+      const s=document.createElement('select'); s.setAttribute('aria-label',label); l.append(s); controls.append(l); return s;
+    }
+    const axis=select('Vary one parameter');
+    for(const [id,label] of [['spread','Spread λ₀ / std(G)'],['k','Number of signals'],['corr','Innovation correlation'],['box','Position limit · equal-risk units']]) axis.add(new Option(label,id));
+    const value=select('Swept value');
+    function options() {
+      value.replaceChildren();
+      const configs=data.configurations.filter(c=>c.axis===axis.value || c.axis==='base');
+      configs.sort((a,b)=>(a.parameters[axis.value]==='∞'?Infinity:Number(a.parameters[axis.value]))-(b.parameters[axis.value]==='∞'?Infinity:Number(b.parameters[axis.value])));
+      for(const c of configs) value.add(new Option(String(c.parameters[axis.value])+(c.id==='base'?' · base':''),c.id));
+      value.value='base'; draw();
+    }
+    function draw() {
+      const c=data.configurations.find(c=>c.id===value.value);
+      root.dataset.configuration=c.id;
+      const p=c.parameters;
+      root.querySelector('.parameters').textContent=`Spread ${p.spread} × std(G); K = ${p.k}; innovation correlation ${p.corr}; position limit ${p.box} equal-risk units. Each configuration has 20 seeds.`;
+      const charts=root.querySelector('.charts'); charts.replaceChildren();
+      const width=charts.clientWidth, left=width<450?65:90;
+      const all=data.configurations.flatMap(c=>c.methods.flatMap(m=>[...m.signals,m.residual]));
+      const low=Math.min(0,...all.map(v=>v.mean-v.sd)), high=Math.max(1,...all.map(v=>v.mean+v.sd));
+      const x=d3.scaleLinear().domain([low,high]).nice().range([left,width-12]);
+      const colors=['var(--info-color)','var(--primary-color)','var(--success-color)','var(--info-color)','var(--primary-color)'];
+      const short=['Iterated stand-alone proxies','One-step regression','Durin','Shapley · risk target','Shapley · full-portfolio γ'];
+      const key=document.createElement('p');key.className='legend';
+      c.methods.forEach((m,j)=>{const t=document.createElement('span');t.style.color=colors[j];t.textContent=`${j+1}: ${short[j]}`;key.append(t);});charts.append(key);
+      const labels=[...c.methods[0].signals.map(r=>r.signal),'Residual'];
+      const group=116, height=labels.length*group+60;
+      const svg=d3.select(charts).append('svg').attr('viewBox',`0 0 ${width} ${height}`).attr('role','img').attr('aria-label','Grouped signal allocation by method; residual is a separate group');
+      svg.append('line').attr('x1',x(0)).attr('x2',x(0)).attr('y1',5).attr('y2',height-50).attr('stroke','var(--text-color)');
+      labels.forEach((label,i)=>{
+        const top=i*group+16;
+        svg.append('text').attr('x',0).attr('y',top+14).text(label);
+        c.methods.forEach((m,j)=>{
+          const r=label==='Residual'?m.residual:m.signals[i], y=top+j*19;
+          svg.append('text').attr('x',left-5).attr('y',y+12).attr('text-anchor','end').text(j+1);
+          svg.append('rect').attr('x',x(Math.min(0,r.mean))).attr('y',y).attr('width',Math.abs(x(r.mean)-x(0))).attr('height',14).attr('fill',j>2?'none':colors[j]).attr('stroke',colors[j]).attr('stroke-dasharray',j>2?'3 2':null).append('title').text(`${m.label}, ${label}: ${r.mean.toFixed(2)} ± ${r.sd.toFixed(2)} SD`);
+          svg.append('path').attr('d',`M${x(r.mean-r.sd)},${y+7}H${x(r.mean+r.sd)}M${x(r.mean-r.sd)},${y+3}v8M${x(r.mean+r.sd)},${y+3}v8`).attr('stroke',colors[j]).attr('fill','none');
+        });
+      });
+      svg.append('g').attr('transform',`translate(0,${height-45})`).call(d3.axisBottom(x).ticks(width<450?3:6).tickFormat(d3.format('.0%')));
+      svg.append('text').attr('x',width/2).attr('y',height-6).attr('text-anchor','middle').text('Share of cumulative net P&L');
+      const table=document.createElement('table');
+      const head=document.createElement('tr');for(const t of ['Method','Residual variance / total','Converged']){const th=document.createElement('th');th.textContent=t;head.append(th);}table.append(head);
+      c.methods.forEach((m,j)=>{const tr=document.createElement('tr');for(const t of [short[j],m.residual_variance?d3.format('.1%')(m.residual_variance.mean):'—',m.convergence?d3.format('.0%')(m.convergence.mean):'—']){const td=document.createElement('td');td.textContent=t;tr.append(td);}table.append(tr);});charts.append(table);
+      status.textContent='Residuals are not allocated. Shares can be negative or above 100%, on one scale for every configuration. Convergence is checked on surviving proxies only.';
+
+    }
+    new ResizeObserver(()=>{if(value.value) draw();}).observe(root);
+    axis.addEventListener('change',options); value.addEventListener('change',draw); options();
+  }).catch(error=>{status.textContent=`Figure unavailable: ${error.message}`;});
+})();
+</script>

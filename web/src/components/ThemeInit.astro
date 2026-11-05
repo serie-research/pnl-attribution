@@ -1,0 +1,9 @@
+<script is:inline>
+  // Apply the stored or system theme before first paint (see src/scripts/theme.js).
+  (() => {
+    let stored = null;
+    try { stored = localStorage.getItem('theme'); } catch {}
+    const dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    if (dark) document.documentElement.dataset.theme = 'dark';
+  })();
+</script>

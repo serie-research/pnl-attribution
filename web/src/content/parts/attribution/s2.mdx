@@ -1,0 +1,374 @@
+import Optional from '../../../components/post/Optional.astro';
+import PaperNote from '../../../components/post/PaperNote.astro';
+
+Classical methods, which use neither signals nor state indicators, split a
+return or P&L against a benchmark, a factor model or a reference price. Each
+split adds up by construction and depends on a convention. Sections 2.2 and 2.4
+are exceptions: the first fits a benchmark, the second measures how uncertain a
+split is.
+
+### 2.1 Allocation, selection, interaction
+
+Brinson attribution compares a manager's portfolio with a benchmark index,
+both divided into *segments*. A segment is a group of assets such as a country
+(the choice in the paper below), a sector or an asset class.
+
+The manager chooses how much to invest in each segment and which stocks to
+hold within it. The benchmark holds each segment's stocks in index
+proportions. Within a segment, the portfolio's stocks can earn more or less
+than the benchmark's stocks.
+
+The figure below uses a synthetic portfolio with two segments, A and B. The
+portfolio holds 60% in A and 40% in B, and the benchmark holds the reverse.
+Over the period, the benchmark's stocks returned 600 basis points (bp) in A and
+200 bp in B, while the portfolio's stocks returned 800 bp and 100 bp.
+
+<PaperNote id="brinsonMeasuringNonUSEquity1985" look="Eqs. (3)–(7), pp. 75–76">
+
+The interaction term is an exact cross product rather than a residual, and the
+choice of comparison portfolios decides whether it is reported alone or inside
+selection.
+
+</PaperNote>
+
+@brinsonMeasuringNonUSEquity1985 split the active return of non-US equity
+portfolios into three amounts that add up exactly. *Allocation* is the gain
+from weighting segments differently from the benchmark. *Selection* is the gain
+from better choices within each segment. *Interaction* is the cross term between
+the two.
+
+For each segment $i$, write $w_i$ and $b_i$ for its weights in the portfolio
+and in the benchmark, $r_i$ for the portfolio's return within the segment and
+$r_i^B$ for the segment's benchmark return. Both sets of weights sum to one,
+and the total returns are
+
+$$
+R_P=\sum_i w_i r_i,
+\qquad R_B=\sum_i b_i r_i^B.
+$$
+
+In the example, $R_P=0.6\times800+0.4\times100=520$ bp and
+$R_B=0.4\times600+0.6\times200=360$ bp, an active return of 160 bp.
+
+The allocation term of Brinson and Fachler (1985) is
+
+$$
+A_i=(w_i-b_i)(r_i^B-R_B).
+$$
+
+It uses the segment's benchmark return, so choices within the segment are not
+yet credited. The selection term is
+
+$$
+S_i=b_i(r_i-r_i^B).
+$$
+
+Selection is applied at the benchmark's weight in the segment. The interaction
+term is
+
+$$
+I_i=(w_i-b_i)(r_i-r_i^B).
+$$
+
+Interaction applies the same return difference to the over- or underweight.
+Together the three terms give
+
+$$
+R_P-R_B=\sum_i(A_i+S_i+I_i).
+$$
+
+<Optional title="Where the three terms come from" subtitle="add and subtract, then use the fact that the weights sum to one">
+
+We start with the difference of the totals:
+
+$$
+R_P-R_B=\sum_i(w_i r_i-b_i r_i^B).
+$$
+
+To separate weights from returns, we add and subtract $w_i r_i^B$ and $b_i r_i$ inside each
+segment's contribution:
+
+$$
+\begin{aligned}
+w_i r_i-b_i r_i^B
+&=(w_i r_i^B-b_i r_i^B)\\
+&\quad +(b_i r_i-b_i r_i^B)\\
+&\quad +(w_i r_i-w_i r_i^B\\
+&\qquad -b_i r_i+b_i r_i^B).
+\end{aligned}
+$$
+
+The first line changes only the weights, using benchmark segment returns.
+The second changes only the segment returns, with benchmark weights.
+The last two lines account for simultaneous changes in weights and returns.
+
+The weight differences sum to zero, because an overweight in one segment is
+offset by underweights elsewhere. We can therefore subtract the total benchmark
+return from each segment return in the first term without changing the sum:
+
+$$
+\sum_i(w_i-b_i)R_B=0.
+$$
+
+The three lines then become $A_i$, $S_i$ and $I_i$.
+
+</Optional>
+
+For segment A, in basis points,
+
+$$
+\begin{aligned}
+A_A&=(0.6-0.4)(600-360)=48,\\
+S_A&=0.4(800-600)=80,\\
+I_A&=(0.6-0.4)(800-600)=40.
+\end{aligned}
+$$
+
+All three terms are positive for A. The portfolio overweights a segment
+whose benchmark beats the overall benchmark, and its stocks also beat that
+segment benchmark. For B, in basis points,
+
+$$
+\begin{aligned}
+A_B&=(0.4-0.6)(200-360)=32,\\
+S_B&=0.6(100-200)=-60,\\
+I_B&=(0.4-0.6)(100-200)=20.
+\end{aligned}
+$$
+
+In B, the underweight in the lower-return segment helps allocation (+32 bp);
+selection is negative (−60 bp) because B's investments lag their benchmark, and
+interaction is positive (+20 bp) because the underweight reduces that loss.
+Across both segments, allocation contributes 80 bp, selection 20 bp and
+interaction 60 bp. Their sum is 160 bp.
+
+A year later, @brinsonDeterminantsPortfolioPerformance1986 measure allocation
+with the segment benchmark return directly:
+
+$$
+A_i^{\mathrm{1986}}=(w_i-b_i)r_i^B.
+$$
+
+Compared with the 1985 term, each segment's allocation gains $(w_i-b_i)R_B$.
+These amounts sum to zero, so the total allocation is unchanged while the
+segment entries move.
+
+A separate choice is to measure selection at portfolio weights:
+
+$$
+S_i^{\mathrm{portfolio}}=w_i(r_i-r_i^B)=S_i+I_i.
+$$
+
+This folds interaction into selection, so it is not reported separately. Both
+conventions account for the full active return, so the choice rests on what
+selection should measure: stock picks at benchmark weights, or at the weights
+actually held.
+
+Change a weight or return in the figure, then switch conventions with those
+inputs fixed. The area view draws one segment's terms as weight times return,
+and the bars show both segments and their totals in basis points.
+
+{/* @include f1-brinson */}
+
+### 2.2 A fitted exposure need not be a holding
+
+Brinson's comparison needs the portfolio's holdings. A returns-based approach
+estimates a comparison portfolio from the fund's returns alone.
+
+<PaperNote id="sharpeAssetAllocationManagement1992" look="Table 2, p. 10; Figures 14–17, pp. 17–18">
+
+When indices are correlated, several mixes can fit the returns. In our
+reading, a fund that changes its mix during the evaluation period has that
+change counted as selection, because the style is fitted on earlier months.
+
+</PaperNote>
+
+@sharpeAssetAllocationManagement1992 finds the long-only mix of asset-class
+indices that tracks a fund's returns most closely and calls it the fund's
+*style*. The style describes how the fund behaved, which need not be what it
+held. Sharpe estimates the style on earlier data and assesses selection on later
+data. The benchmark is therefore not fitted to the period it evaluates.
+
+With $y_t$ the fund's return and $r_{k,t}$ the return of index $k$, the style
+weights solve
+
+$$
+\min_{w}\ \operatorname{Var}\Big(y_t-\sum_k w_k r_{k,t}\Big)
+\quad\text{with } w_k\geq0,\ \sum_k w_k=1 .
+$$
+
+Only the variance of the difference is minimised, so its mean is left free.
+
+### 2.3 Factor return and factor risk
+
+With recorded positions and specified factor exposures, position P&L can be
+divided into factor and specific terms.
+
+A linear factor model writes the vector of asset returns at time $t$ as
+
+$$
+r_t=B_t f_t+u_t.
+$$
+
+Here $B_t$ holds the assets' factor exposures, $f_t$ the factor returns and
+$u_t$ the part of asset returns the factors leave unexplained. Currency positions $h_t$ give the amount held in
+each asset over the return interval. Position P&L is
+
+$$
+h_t^\top r_t=(B_t^\top h_t)^\top f_t+h_t^\top u_t.
+$$
+
+The vector $B_t^\top h_t$ gives the portfolio's factor exposures.
+Factor exposure times factor return gives each factor's contribution;
+the remaining term is specific P&L.
+The same split works with any linear return model: for a portfolio built from
+alpha forecasts, each alpha can serve as a factor, with the forecast values as
+its exposures.
+
+These terms add up even when factors are correlated. Correlation affects risk
+and how the factors are read, but adds no interaction term to this linear
+identity. A rotation of the factor basis replaces the factors with linear
+combinations of them; it can change individual contributions and leaves the
+total unchanged
+[@grinoldActivePortfolioManagement2000; @paleologoElementsQuantitativeInvesting2025, p. 71].
+
+Over a short history the mean of each component is uncertain, as the next
+figure shows; [section 2.4](#24-estimated-components-are-uncertain) adds a
+second uncertainty, from estimating the factor returns.
+
+{/* @include f14-factor-pnl */}
+
+Returns split additively; risk does not, because positions co-move. For a
+fixed covariance matrix $\Sigma$ and a position vector $x$, portfolio
+volatility is
+
+$$
+\sigma(x)=\sqrt{x^\top\Sigma x}.
+$$
+
+Volatility scales with the portfolio: multiplying every position by a positive
+constant multiplies volatility by the same constant. When volatility is positive, Euler's
+theorem then splits it into one risk contribution $\mathrm{RC}_i$ per position:
+
+$$
+\sigma(x)=\sum_i x_i\frac{\partial\sigma}{\partial x_i},
+\qquad
+\mathrm{RC}_i=\frac{x_i(\Sigma x)_i}{\sigma(x)}.
+$$
+
+<PaperNote id="littermanHotSpotsHedges1996" look="Exhibit 13, p. 60; Exhibit 22, p. 66">
+
+The risk triangle draws two position volatilities as sides, with correlation
+setting the angle and portfolio volatility the third side.
+
+</PaperNote>
+
+The hot-spots report of @littermanHotSpotsHedges1996 lists these risk
+contributions next to the position sizes. Each contribution depends on the
+position's covariance with the whole portfolio, not only on its size and
+volatility. A hedge can contribute negatively, and the largest position need
+not contribute the most risk.
+
+The decomposition allocates volatility, not the realised P&L of a given day.
+
+### 2.4 Estimated components are uncertain
+
+<PaperNote id="paleologoElementsQuantitativeInvesting2025" look="§14.2.2–14.2.3, pp. 337–340">
+
+Gives standard errors for the split between factor and specific P&L.
+
+</PaperNote>
+
+Paleologo shows that factor and specific P&L are uncertain even when their
+sum is exact, because the factor returns are themselves estimated. Specific
+P&L is position P&L minus factor P&L, so an error in factor P&L appears with
+the opposite sign in specific P&L. The errors cancel in the total.
+
+<Optional title="How the uncertainty is computed" subtitle="fixed model, normal returns, weighted least squares">
+
+In this model, factor returns are estimated each period by a cross-sectional
+weighted least-squares regression of asset returns on the exposures $B_t$.
+Paleologo treats these estimates as noisy and calculates the resulting
+uncertainty in factor P&L. His standard errors assume a fixed model and normal
+returns, and they do not cover exposures that change intraday.
+
+</Optional>
+
+### 2.5 Spread and inventory: a market maker's P&L
+
+A market maker's P&L is computed from its fill records, which we call the
+*ledger*, rather than from position snapshots. With inventory marked at the
+final midprice, the P&L before fees splits exactly into the spread earned at
+each fill and the gain or loss on the market maker's inventory, called
+*positioning*. Net spread is that spread after
+fees.
+
+Consider a hypothetical purchase of one share. The midprice before the fill is
+€100.00, and the market maker buys at €99.98, so the fill earns €0.02 against
+that midprice. After a fee of €0.01, the net spread is €0.01. The midprice then
+falls to €99.95: the share loses €0.05 against the initial midprice, and the
+marked P&L after fees is €0.01 − €0.05 = −€0.04.
+
+{/* @include i5-mm-ledger */}
+
+For fill $i$, let $d_i$ be its signed quantity, positive for a purchase, $p_i$
+its price, $\rho_i$ a chosen reference price and $m_T$ the final midprice. The
+split is
+
+$$
+d_i(m_T-p_i)=\underbrace{d_i(\rho_i-p_i)}_{\text{spread}}+\underbrace{d_i(m_T-\rho_i)}_{\text{positioning}}.
+$$
+
+As with Brinson, the total is fixed and the split depends on a convention, here
+the reference price. A later reference moves money between positioning and
+spread without changing the total. A fill's *markout* is its spread measured
+against the midprice a set time $\tau$ after the fill.
+
+<PaperNote id="menkveldHighFrequencyTrading2013" look="Tables 2–3, pp. 33–34, TI 11-076/2/DSF 21 (2011)">
+
+Page numbers follow the 2011 discussion paper, not the 2013 journal version.
+
+</PaperNote>
+
+@menkveldHighFrequencyTrading2013 [pp. 16, 33] applies this split
+to one high-frequency market maker, with the midprice just before each fill as
+reference.
+The trader earned €1.55 per trade in net spread and lost €0.68 per trade on
+positioning.
+
+<Optional title="Menkveld's sample, the full P&L and markouts" subtitle="data, hedges and fees, later references, paper portfolio">
+
+**Sample.** @menkveldHighFrequencyTrading2013 [pp. 11, 28] examines one unnamed high-frequency trader on NYSE Euronext and Chi-X, in 14 Dutch index stocks over 200 trading days, from 4 September 2007 to 17 June 2008. The trader made 1,397 trades per stock per day, an index-weighted average across stocks (Table 1, p. 32). Table 2 reports gross profit of €0.88 per trade; the net spread minus the positioning loss gives €0.87, and the difference of one cent comes from rounding in the table. Gross profit here excludes fixed costs (footnote 9, p. 12).
+
+A frequency decomposition divides inventory into components that vary over different horizons, and Menkveld applies it to positioning profit. For this trader and sample, in the all-stocks column, the component at horizons up to five seconds earns positive positioning profit; every longer horizon band loses (Table 3, p. 34). Menkveld labels these bands position durations (p. 29), and we read them as periods of inventory cycles rather than holding times of individual positions.
+
+**The full P&L.** Assume that the market maker starts with zero inventory and marks the terminal inventory at $m_T$, without liquidation costs. Summing over fills,
+
+$$
+\begin{aligned}
+\mathrm{Spr}(\rho)&=\sum_i d_i(\rho_i-p_i),\\
+\mathrm{Pos}(\rho)&=\sum_i d_i(m_T-\rho_i),
+\end{aligned}
+$$
+
+and the P&L is
+
+$$
+\Pi=\mathrm{Spr}(\rho)+\mathrm{Pos}(\rho)+H-\mathrm{fees}+\mathrm{rebates}.
+$$
+
+Here $H$ is the gross marked P&L of a separately booked hedge instrument. Fees and rebates are separate cash lines covering both quoting and hedging. The sum runs over quoting fills only. If the fill records also hold the hedge trades, their P&L is already in $\mathrm{Spr}(\rho)$ and $\mathrm{Pos}(\rho)$, and $H$ is dropped. With the midprice just before each fill as $\rho_i$, $\mathrm{Spr}(\rho)$ minus the fills' fees plus their rebates gives Menkveld's net spread, and $\mathrm{Pos}(\rho)$ gives his positioning profit.
+
+**Later references.** Moving the reference from the midprice before the fill to a later midprice adds $d_i(\rho_i^{\text{later}}-\rho_i^{\text{pre}})$ to spread and subtracts the same amount from positioning. In the quoting model of @gueantDealingInventoryRisk2013, which includes adverse price jumps at fills, the jump enters positioning when the reference is the midprice before the jump; with a later reference, part of the loss enters measured spread. A later reference also includes unrelated price moves and subsequent trades, so the transfer does not estimate the current fill's adverse selection.
+
+**Markouts.** For a fill at time $t_i$, let $m(t_i+\tau)$ be the midprice $\tau$ seconds later. Its signed execution-to-midprice markout is $d_i[m(t_i+\tau)-p_i]$, which is $\mathrm{Spr}(\rho)$ for that fill with $\rho_i=m(t_i+\tau)$. Averaged over fills and plotted against $\tau$, it gives the markout curve. When fill sizes differ, the amount per unit traded (dividing by $\sum_i \lvert d_i\rvert$) is easier to compare; we report it with the fill count and traded quantity.
+
+**Paper portfolio.** @peroldImplementationShortfallPaper1988 defines implementation shortfall against a paper portfolio fixed at decision time, and compares that paper portfolio with the portfolio actually implemented. A market maker revises its quotes continuously and executes no fixed list of intended trades, so its paper portfolio is not defined; the ledger accounts for fills and does not value missed opportunities.
+
+</Optional>
+
+Section 5.3 proposes relating spread and inventory P&L to market
+conditions such as the quoted spread, volatility or market order flow, with the
+methods of section 4.
+
+[↑ Sections](#)

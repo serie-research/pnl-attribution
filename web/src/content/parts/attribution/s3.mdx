@@ -1,0 +1,812 @@
+import PaperNote from '../../../components/post/PaperNote.astro';
+import Optional from '../../../components/post/Optional.astro';
+import Limits from '../../../components/post/Limits.astro';
+
+Factor attribution divides the P&L of positions already held. Signal attribution also needs to account for the policy that produced those positions.
+
+A portfolio receives $K$ forecasts, the signals, but holds a single position.
+The portfolio construction combines the forecasts with risk, transaction costs
+and position limits. A signal that asks for a purchase may reinforce another
+signal, offset it, or leave the portfolio unchanged. To attribute the
+resulting P&L, we need to know how the signals become trades.
+
+A policy that we can rerun lets us compare its outputs with different signals
+as inputs. Known optimality equations let us split the joint solution directly.
+@grinoldAttributionPerformanceHoldings1998 do this for an optimised portfolio,
+with one portfolio per signal and one per binding constraint. A constraint
+binds when its limit holds with equality at the optimum. Durin's variant in
+section 3.3 spreads the constraints over the signals. Coalition methods need
+many more reruns but no optimality equations. Because the methods use different
+inputs, a signal's contribution means something different in each.
+
+{/* @include i3-method-map */}
+
+### 3.1 Stand-alone portfolios as proxies
+
+A common method reruns the policy once per signal, with only that signal
+switched on. It then fits the total P&L with a weighted mix of these
+stand-alone P&Ls, by nonnegative least squares. Each signal's contribution is
+its weighted stand-alone P&L, and what the mix cannot reproduce stays in a
+residual.
+
+Each run keeps the construction rules, including costs and constraints, and
+gives the signal its own risk target: a chosen level of predicted portfolio
+volatility. The stand-alone P&L therefore includes the trades the signal
+generates: a fast signal's turnover, a slow signal's carried positions. The
+method fits these P&Ls rather than the raw forecasts.
+
+<Optional title="The proxy regression" subtitle="nonnegative least squares without intercept, residual">
+
+Let $y_t$ be the total P&L in period $t$ and $\pi_{k,t}(\sigma_k^\star)$ the
+proxy for signal $k$ at risk target $\sigma_k^\star$. We fit nonnegative least
+squares (NNLS) without an intercept:
+
+$$
+\widehat\beta
+=\arg\min_{\beta_k\geq0}
+\sum_t\left(y_t-\sum_{k=1}^{K}\beta_k \pi_{k,t}(\sigma_k^\star)\right)^2.
+$$
+
+Writing $\pi_{k,t}$ for $\pi_{k,t}(\sigma_k^\star)$, signal $k$ is assigned
+$\widehat\beta_k \pi_{k,t}$, and the residual is kept as a separate term:
+
+$$
+\varepsilon_t=y_t-\sum_k\widehat\beta_k \pi_{k,t}.
+$$
+
+</Optional>
+
+The fit has no constant term, so it cannot absorb an average gain or loss, and
+its nonnegative coefficients cannot reverse a proxy's sign. A losing proxy
+receives a negative contribution if its coefficient is positive, and none if
+the fit sets it to zero. Because the signals are correlated, trades offset and
+constraints bind, the coefficients are not independent risk budgets in the
+combined portfolio.
+
+The one-step regression stops there. The iterated method rescales each
+signal's risk target by its fitted coefficient, reruns the stand-alone
+portfolios and fits again.
+
+<Optional title="Iterating on the risk targets" subtitle="undamped update and fixed point">
+
+In the simulation below, the optimiser adjusts risk aversion each period to
+reach each run's risk target when the constraints permit it. The update is
+
+$$
+\sigma_k^\star\leftarrow\widehat\beta_k\sigma_k^\star.
+$$
+
+The update is undamped: each target is multiplied by the full fitted
+coefficient. At a fixed point every surviving proxy has coefficient one, and a
+proxy whose coefficient reaches zero drops out.
+
+A scaled proxy can differ from the proxy of a new run at the new risk target, because the construction is nonlinear. The method therefore repeats the regression.
+
+</Optional>
+
+@durinSignalwisePerformanceAttribution2014 reports regressions on signal
+portfolios as existing practice (pp. 2–3). He rejects them as a general method,
+because binding constraints can leave a large residual. Section 3.3 describes
+his alternative.
+
+The residual collects the P&L of joint trades that no fixed nonnegative mix of
+stand-alone P&Ls matches. Assigning it to the signals would make the
+contributions add up without explaining more of the P&L.
+
+A small residual means only that the proxies fit the total in this sample, not
+that they are causal or that they predict what removing a signal would do.
+When proxies are similar, their coefficients need not be unique.
+
+### 3.2 Removing one signal from the full portfolio
+
+Leave-one-out attribution asks what the portfolio loses when one signal is
+removed. It runs the construction with all signals, then once with each signal
+left out. @isichenkoQuantitativePortfolioManagement2021 [p. 134] scores a
+forecast in this way, by how much the backtest deteriorates without it.
+
+The leave-one-out contribution of a signal is the P&L of the full run minus the
+P&L of the run without that signal, with both runs under the same risk
+convention. A signal that is redundant with another can have a substantial
+stand-alone P&L and a small leave-one-out contribution. A signal that helps the
+combined forecast clear a trading threshold (section 3.3) can have the reverse
+pattern.
+
+Neither method guarantees that the contributions sum to the total, as Isichenko
+notes for leave-one-out. When several signals jointly enable a trade, removing
+any one of them removes the same gain, so the sum of removal effects counts
+that gain more than once.
+
+Both methods keep the market path, the cost model and the initial positions
+fixed across runs. Only the signals and their risk targets change, and we state
+which risk convention each run uses. The replay also assumes that removing a
+signal leaves market prices unchanged. The remaining trades fill at observed
+prices or through a fill model for passive orders, and the desk's own impact is
+left out.
+
+### 3.3 Using the optimiser's internal equations
+
+@durinSignalwisePerformanceAttribution2014 uses the optimiser's own equations
+to split its actual position into one position per signal, and the pieces add
+up to that position. Each signal receives the P&L of its piece and a share of
+the joint risk and cost. This works because, with the binding constraints
+fixed, the optimal trade is affine in the forecasts. The method therefore needs
+a known convex optimiser with a quadratic risk or cost term. It reads that
+optimiser's positions, binding constraints and Lagrange multipliers.
+
+<Optional title="What the split assumes: an affine map and frozen multipliers" subtitle="active set, intercepts, frozen multipliers">
+
+With the set of binding constraints fixed, the optimality conditions are
+linear equations in the trade and the multipliers. The forecasts and the
+bounds sit on the right-hand side. The optimal trade is therefore affine in
+the forecasts: a bound with a nonzero value, such as a position bound $M_c$,
+contributes an intercept that does not scale with any forecast.
+
+Durin's split has no separate intercept because the multipliers, evaluated at
+the joint optimum, enter the shared matrices of the derivation below. With these
+matrices held fixed, the recursion is linear in each
+signal's forecast. Holding them fixed is a convention: the signal positions add
+up to the joint position, but a signal's position is not the position the
+optimiser would hold for that signal alone.
+
+The inverses below require the matrix $Q$ and its constrained version
+$\bar Q_t$, defined in the derivation, to be nonsingular on the free subspace:
+the directions in which the binding constraints still let the trade move.
+
+</Optional>
+
+<Limits>
+
+- **No optimality equations.** Heuristic position rules, black-box models and learned policies do not supply these equations. Sections 3.1, 3.2 and 3.4 describe rerun methods, and section 5.3 returns to such opaque policies.
+- **Dynamic model.** @durinSignalwisePerformanceAttribution2014 solves for the next trade only and covers the dynamic model of @garleanuDynamicTradingPredictable2013 through modified forecasts and matrices (pp. 4–5); constraining only the next trade while keeping the unconstrained value function approximates the full constrained dynamic program (p. 7).
+- **Excluded constraints.** Combinatorial and non-convex constraints, such as round lots or a minimum trade size, are outside this treatment.
+- **Linear and mixed-integer programs.** With no quadratic cost or risk term, a linear program's optimum sits at a vertex of the feasible set and is piecewise constant in the forecasts, so it has no linear split. Mixed-integer problems that carry state between periods, such as on/off decisions with start-up costs, are excluded too.
+
+</Limits>
+
+{/* @include i33-applicability */}
+
+<PaperNote id="durinSignalwisePerformanceAttribution2014" look="Eqs. (29)–(32), pp. 11–12">
+
+Durin folds the binding constraints into effective risk and cost matrices
+shared by every signal. Their effect is therefore spread over the signal
+positions, and these positions still sum exactly to the joint position.
+
+</PaperNote>
+
+<Optional title="Derivation: one position per signal" subtitle="objective, recursion, P&L, risk and cost split, constraints, zero bounds">
+
+Equation and page numbers in this block refer to
+@durinSignalwisePerformanceAttribution2014.
+
+Let $x_{t-1}$ be the previous position and $\Delta x_t$ the trade. Let $g_t^k$
+be the expected return supplied by signal $k$ for the next period. The
+combined forecast is $G_t=\sum_k g_t^k$. This sum assumes additive alpha
+signals. For the features of a fitted model, removing a feature can mean
+refitting, marginalising or imputing, and each gives a different attribution
+[@covertExplainingRemovingUnified2021]. After the trade the position is
+$x_t=x_{t-1}+\Delta x_t$. In the static model, the optimiser chooses the
+trade that maximises the following objective. It subtracts a risk penalty and
+a quadratic trading cost from the new position's expected return:
+
+$$
+x_t^\top G_t-\tfrac{\gamma}{2}\,x_t^\top\Sigma x_t-\tfrac12\,\Delta x_t^\top\Lambda\Delta x_t .
+$$
+
+Here $\Sigma$ is the covariance of returns, $\gamma$ the risk aversion and
+$\Lambda$ the matrix of quadratic trading costs. We replace $x_t$ by
+$x_{t-1}+\Delta x_t$ and drop the terms that do not depend on the trade. What
+remains is
+
+$$
+\begin{gathered}
+\Delta x_t^\top G_t-\tfrac12\,\Delta x_t^\top Q\Delta x_t-\Delta x_t^\top Px_{t-1},\\
+Q=\Lambda+\gamma\Sigma,\quad P=\gamma\Sigma .
+\end{gathered}
+$$
+
+The matrix $Q$ combines the cost of trading and the risk the trade adds. The
+matrix $P$ measures how the trade interacts with the risk of the previous
+position. Durin writes the objective in this form (Eq. 5, p. 4), with the
+static matrices of Eq. 7 (p. 5). The same form holds in the dynamic model of
+Gârleanu and Pedersen, on which his paper builds, with different matrices $Q$
+and $P$ and forecasts adjusted for each signal's decay rate.
+
+Setting the derivative with respect to $\Delta x_t$ to zero gives the
+optimality equation (Eq. 8, p. 6)
+
+$$
+Q\Delta x_t+Px_{t-1}=\sum_k g_t^k.
+$$
+
+The equation is linear in the forecasts and the previous position. If the
+portfolio starts flat, as in the simulation of section 3.5, each signal starts
+from $x_0^k=0$. A nonzero initial position belongs to no signal; one choice
+carries it as one more component with zero forecast, which the recursion
+unwinds. At each step we compute each signal's trade, then update its position
+(Eqs. 11–12, p. 6):
+
+$$
+\Delta x_t^k=Q^{-1}(g_t^k-Px_{t-1}^k).
+$$
+
+The trade responds to this signal's forecast and the position it already
+holds.
+
+$$
+x_t^k=x_{t-1}^k+\Delta x_t^k,
+\qquad x_t=\sum_k x_t^k.
+$$
+
+The component positions sum to the actual position (Eq. 9, p. 6). The inverses
+require nonsingular matrices (see the affine-map block); zero bounds come last.
+
+Let $r_{t+1}$ be the vector of realised returns over the next holding period.
+The gross P&L assigned to signal $k$ is
+
+$$
+\Pi_{t+1}^k=(x_t^k)^\top r_{t+1}.
+$$
+
+Multiplying every component by the same returns gives an exact gross P&L split,
+as Durin notes after Eq. 12 (p. 6). For risk, write $V$ for portfolio variance
+and $V_k$ for the share assigned to signal $k$ (Eq. 13, p. 6):
+
+$$
+V=x_t^\top\Sigma x_t
+=\sum_k (x_t^k)^\top\Sigma x_t
+=\sum_k V_k.
+$$
+
+Each share measures the component's covariance with the full portfolio,
+including its interaction with the other signals. For quadratic cost $C$, the
+analogous allocation is (Eq. 14, p. 7)
+
+$$
+\begin{aligned}
+C&=\tfrac12\Delta x_t^\top\Lambda\Delta x_t=\sum_k C_k,\\
+C_k&=\tfrac12(\Delta x_t^k)^\top\Lambda\Delta x_t.
+\end{aligned}
+$$
+
+A component receives its share of the cost of the joint trade, including the
+savings when component trades offset each other.
+
+**Two ways to handle constraints.** @grinoldAttributionPerformanceHoldings1998
+treat each binding constraint as one more source of P&L, next to the signals,
+as Durin describes (pp. 2–3). In Durin's notation, the optimality equation
+becomes (Eq. 17, p. 7)
+
+$$
+Q\Delta x_t+Px_{t-1}=G_t+\sum_c\theta_{t,c}.
+$$
+
+Here $c$ indexes constraints. The vector $\theta_{t,c}$ is the signed
+contribution of a constraint's multiplier to the equation, including its
+exposure direction. Running the same recursion on each source gives a
+constraint portfolio beside the signal portfolios, hence a P&L per constraint.
+It does not say which signals should bear that constraint's effect (pp. 7–8).
+
+Durin instead folds each binding constraint into the risk and cost matrices
+that every signal uses. A binding position constraint contributes extra
+quadratic risk at the optimum; a binding trade constraint contributes extra
+quadratic cost. Write $\bar Q_t$ and $\bar P_t$ for the resulting matrices.
+Durin's signal-wise recursion (Eq. 24, p. 10, which reuses the recursion of
+Eqs. 10–12, p. 6) is then
+
+$$
+\begin{aligned}
+\Delta x_t^k&=\bar Q_t^{-1}(g_t^k-\bar P_t x_{t-1}^k),\\
+x_t^k&=x_{t-1}^k+\Delta x_t^k.
+\end{aligned}
+$$
+
+Each signal's trades therefore include the effect of the binding constraints.
+A binding trade limit slows trading in the
+constrained direction. A position limit shrinks the aim portfolio (the target the trade moves towards)
+in that direction, but can make the adjustment towards it faster. In Durin's value/momentum example, the no-short constraint affects even the signal that points away from the forbidden short position. The adjustment depends on each signal's position
+from previous trades (Eq. 34, p. 13).
+
+**From active bounds to effective matrices.** Let $a_c$ be the vector defining an exposure and $M_c$ its active bound. For a
+sector exposure, $a_c$ has ones on the sector's stocks and zeros elsewhere.
+
+At an active upper position bound, $a_c^\top x_t=M_c$. Durin uses the squared
+constraint $(a_c^\top x_t)^2\leq M_c^2$ and a multiplier $\eta_c$ for it
+(Eqs. 26–29, p. 11). A lower bound is treated in the same way when it is the
+active one.
+
+At the active bound, the squared constraint gives the same optimality equation.
+Squaring a one-sided bound can change its feasible set, so the
+nonnegative-penalty reading holds for bounds that reduce the trade or position,
+in particular when zero is admissible (p. 14).
+
+We remove the terms that are constant in the trade. For one position constraint,
+the augmented objective is (Eq. 29, p. 11)
+
+$$
+\begin{aligned}
+F={}&-\tfrac12\Delta x_t^\top Q\Delta x_t
+      -\Delta x_t^\top Px_{t-1}\\
+   &+\Delta x_t^\top G_t
+      -\eta_c x_t^\top(a_c\otimes a_c)x_t.
+\end{aligned}
+$$
+
+The last term penalises squared exposure. The matrix
+$a_c\otimes a_c=a_ca_c^\top$ is an outer product. With $A_c=2a_c\otimes a_c$,
+differentiation gives (Eqs. 29–31, pp. 11–12)
+
+$$
+\begin{gathered}
+(Q+\eta_c A_c)\Delta x_t\\
+=G_t-(P+\eta_c A_c)x_{t-1}.
+\end{gathered}
+$$
+
+One position constraint adds $\eta_c A_c$ to both matrices. In the static
+model, it adds $\eta_c A_c/\gamma$ to the covariance matrix. A squared trade
+constraint, with multiplier $\mu_c$, adds
+$-\mu_c\Delta x_t^\top(a_c\otimes a_c)\Delta x_t$ to the objective and changes
+only $Q$ (p. 12).
+
+For several constraints, let $\mathcal T$ index trade constraints and
+$\mathcal P$ position constraints. Including the time dependence of the
+multipliers, Eq. 31 (p. 12) gives
+
+$$
+\begin{aligned}
+\bar Q_t&=Q+\sum_{c\in\mathcal T}\mu_{t,c}A_c\\
+        &\quad+\sum_{c\in\mathcal P}\eta_{t,c}A_c,\\
+\bar P_t&=P+\sum_{c\in\mathcal P}\eta_{t,c}A_c.
+\end{aligned}
+$$
+
+Only position constraints change the term involving the previous position.
+Inactive constraints have zero multipliers. For individual stock bounds, these
+additions are diagonal, as in Durin's long-only example (Eq. 32, p. 12).
+
+The solver supplies multipliers for the original linear bounds. Denote one
+such scalar by $\nu_c$. Unlike the vector $\theta_{t,c}$ of Eq. 17, it
+excludes the exposure vector. Let $s$ equal $+1$ for an
+upper bound and $-1$ for a lower bound in the maximisation convention. The
+attribution multiplier is (Eqs. 35–37, p. 14)
+
+$$
+\eta_c=\frac{s\,\nu_c}{2M_c}.
+$$
+
+This converts sensitivity to the original bound into sensitivity to its
+square. The same conversion gives $\mu_c$ for a trade bound.
+
+At a zero bound this division cannot be used directly. For one trade
+constraint, define the adjusted forecast $\tilde g_t^k=g_t^k-Px_{t-1}^k$ and
+let $a$ be its exposure vector. Applying Durin's rank-one inverse to each
+signal gives (Eqs. 39–41, p. 15)
+
+$$
+\begin{aligned}
+\Delta x_t^k
+&=\left[Q^{-1}
+ -\alpha\frac{Q^{-1}aa^\top Q^{-1}}{a^\top Q^{-1}a}\right]\tilde g_t^k,\\
+\alpha&=\frac{2\mu a^\top Q^{-1}a}
+                 {1+2\mu a^\top Q^{-1}a}.
+\end{aligned}
+$$
+
+As the active bound tends to zero and $\mu$ tends to infinity, $\alpha$ tends
+to one. This projects the trade onto $a^\top\Delta x_t^k=0$, along $Q^{-1}a$
+(Eq. 42, pp. 15–16). For a position bound, we use its multiplier $\eta$ in
+$\alpha$; the trade expression has the additional term (Eqs. 43–44, p. 16)
+
+$$
+-\alpha\frac{Q^{-1}aa^\top}{a^\top Q^{-1}a}\,x_{t-1}^k.
+$$
+
+It removes the previous position's exposure too, so the limiting component
+position satisfies $a^\top x_t^k=0$. The infinite multiplier therefore has a
+finite, well-defined effect on the attributed trades and positions.
+
+</Optional>
+
+<span id="cost-allocation"></span>
+
+**Spread costs and the no-trade band.** The portfolio trades only when the
+combined forecast is large enough to cover the spread. For smaller forecasts it
+stays inside a no-trade band, and no signal trades. Two signals can cancel
+inside the band, or push the combined forecast out of it together. Each signal
+pays the spread on its part of the joint trade and is credited when its part
+goes against that trade. Durin reads this sharing of the spread as a voting
+mechanism among the signals (p. 18).
+
+<Optional title="Derivation: spread costs and their allocation" subtitle="effective cost, band condition, several assets, turnover and financing">
+
+Equation and page numbers in this block also refer to Durin. He treats the
+spread as an extra quadratic cost that grows as the trade gets smaller, and
+gives every signal the same extra cost. We take a single asset in the static
+model, with scalar return variance $\Sigma$ and scalar quadratic cost
+coefficient $\Lambda$ (Durin's $\lambda$ in Eqs. 49–60). A positive spread
+$\lambda_0$ is charged per unit traded, adding $-\lambda_0|\Delta x_t|$ to the
+objective. For a nonzero joint trade, the effective quadratic-cost multiplier,
+which Durin writes $\eta_t$, is (Eqs. 47–48, pp. 16–17)
+
+$$
+\eta_t^{\mathrm{spr}}=\frac{\lambda_0}{2|\Delta x_t|}.
+$$
+
+Smaller joint trades therefore face a larger effective quadratic cost. The
+optimality equation becomes (Eq. 52, p. 17)
+
+$$
+(\gamma\Sigma+\Lambda+2\eta_t^{\mathrm{spr}})\Delta x_t
+=G_t-\gamma\Sigma x_{t-1}.
+$$
+
+Spread costs enter the trade coefficient, leaving the previous-position
+coefficient unchanged. Each signal uses the same $\eta_t^{\mathrm{spr}}$, with
+$g_t^k$ and $x_{t-1}^k$ on the right. A nonzero trade exists only when
+(Eqs. 50–54, p. 17)
+
+$$
+|G_t-\gamma\Sigma x_{t-1}|>\lambda_0.
+$$
+
+Inside this band, including its boundary, the combined forecast does not
+justify paying the spread. The limiting effective cost is infinite, and every
+signal's attributed trade is zero.
+
+Stand-alone portfolios face their own thresholds and histories. A regression
+coefficient therefore cannot, in general, line up their trading dates with
+those of the joint portfolio.
+
+For several assets, spread cost is assigned using the direction of each joint
+trade. With $i$ indexing assets, its allocation to signal $k$, a positive cost
+to subtract, is (Eq. 22, p. 9)
+
+$$
+C_{\mathrm{spread},t}^k
+=\lambda_0\sum_i\Delta x_{t,i}^k\,
+  \operatorname{sgn}(\Delta x_{t,i}).
+$$
+
+Here $\operatorname{sgn}$ is the sign function, with value zero at zero. A
+component trading against the full trade can receive a negative cost
+allocation because it reduces the net trade to execute. Subtracting these
+spread allocations and the quadratic costs from each component's gross P&L
+gives an exact net split. The effective costs shape the component trades. They
+are not extra cash costs to subtract.
+
+The same construction handles a turnover constraint, with its multiplier in
+place of the spread coefficient. Financing costs and leverage constraints
+penalise absolute positions instead of absolute trades. They become effective
+risk terms and can force every component's position to zero (Durin, Sections
+2.3 and 3.4; pp. 8–9 and 18, Eqs. 55–60).
+
+</Optional>
+
+Move the signals and the spread in the next figure to see when the combined
+forecast produces a trade.
+
+{/* @include f4-no-trade-band */}
+
+### 3.4 Sharing value across coalitions
+
+Coalition methods rerun the construction on every subset of signals, not only
+single signals and single removals. The value of a coalition is the P&L of its
+run. The Shapley value from cooperative game theory divides the gain of the
+full set over the empty coalition among the signals.
+
+The empty coalition, with no signal, needs a reference policy. The Shapley
+contributions add up to the full P&L minus the P&L of that policy, and they
+depend on it, as SHAP shares depend on their baseline in section 4.2. Below,
+the reference policy does not trade, so the empty coalition earns nothing.
+
+The Shapley value credits a signal with its marginal contribution, the extra
+P&L when it joins a coalition. It averages that contribution over all orders in
+which the $K$ signals can enter. A signal's stand-alone value is then its
+marginal contribution when it enters first. Its leave-one-out contribution is
+its marginal contribution when it enters last, and Shapley also uses every
+coalition in between.
+
+<Optional title="The Shapley formula and the empty coalition" subtitle="marginal contributions, weights, reference policy, risk convention">
+
+Let $N$ be the set of the $K$ signals, so $K=|N|$. The value $v(S)$ of a
+coalition $S\subseteq N$ is the P&L of the construction with only the signals
+in $S$, under a given risk convention. The stand-alone value of signal $k$ is
+$v(\{k\})$, and its leave-one-out contribution is
+
+$$
+L_k=v(N)-v(N\setminus\{k\}).
+$$
+
+The stand-alone proxy of section 3.1 equals $v(\{k\})$ only under the same risk
+convention, so updating the proxies' risk targets defines a different game.
+
+The value $v(\varnothing)$ is the P&L of the reference policy, zero here. With
+a reference policy that trades, $v(S)$ is replaced by $v(S)-v(\varnothing)$.
+
+The marginal contribution of signal $k$ to a coalition $S$ is
+
+$$
+\Delta_k v(S)=v(S\cup\{k\})-v(S).
+$$
+
+This is the extra P&L when signal $k$ joins the signals already in $S$. The
+contribution of signal $k$ is
+
+$$
+\phi_k=\sum_{S\subseteq N\setminus\{k\}}
+\omega(S)\,\Delta_k v(S),
+\qquad
+\omega(S)=\frac{|S|!\,(K-|S|-1)!}{K!}.
+$$
+
+The Shapley weight $\omega(S)$ is the probability that, in a uniformly random
+order of the $K$ signals, exactly the signals of $S$ come before $k$: there are
+$|S|!\,(K-|S|-1)!$ such orders out of $K!$. For each order, the successive
+increments sum to $v(N)-v(\varnothing)$, so their average does too:
+$\sum_k\phi_k=v(N)-v(\varnothing)$.
+
+</Optional>
+
+<PaperNote id="shapleyValueNpersonGames1953" look="RM-670 (1951), Section 5 (bargaining procedure), pp. 12–13">
+
+@shapleyValueNpersonGames1953 defines the value by a random-order procedure:
+each player receives its average contribution on joining the players already
+present. Applied here, it divides the P&L of a coalition game with given
+trading and risk conventions. Page numbers refer to the 1951
+RAND memorandum RM-670, *Notes on the n-person game, II*. The 1953 book chapter
+is paginated differently.
+
+</PaperNote>
+
+In an additive game the stand-alone values already sum to the total, and
+Shapley returns them. Otherwise the gap between a signal's Shapley contribution
+and its stand-alone value is the part of the interaction that Shapley gives to
+that signal. The proxy regression, by contrast, fits only the stand-alone
+series.
+
+Exact Shapley needs a full backtest of the optimiser for every nonempty
+coalition, and the number of coalitions doubles with each added signal. With
+many signals, sampling random orders of entry can reduce the number of
+backtests. Grouping signals into families, as in Owen's value, also cuts the
+cost but gives an allocation different from Shapley's. Durin's
+[internal allocation](#33-using-the-optimisers-internal-equations), by
+contrast, needs no rerun at all.
+
+On our synthetic histories with up to eight signals, no sampler reached the
+target precision (defined below) with fewer coalition values than exact
+enumeration. Owen's grouped value needed fewer values and stayed close to
+Shapley, while the approximation that drops interactions above order two
+performed poorly. Up to eight signals, exact enumeration was the cheapest way
+to compute Shapley's allocation itself. Owen's value costs less but gives a
+different allocation. With more signals, sampling becomes necessary, and its
+error is worth comparing with the dispersion across histories.
+
+<Optional title="Sampling estimators and their error" subtitle="KernelSHAP, history dispersion, sampling bounds">
+
+@castroPolynomialCalculationShapley2009 average marginal contributions over
+random signal orders. Among the samplers that
+@mitchellSamplingPermutationsShapley2022 compare, one pairs each order with its
+reverse to reduce sampling error. @owenValuesGamesPriori1977
+averages only over the orders that keep each family together. KernelSHAP [@lundbergUnifiedApproachInterpreting2017] fits the contributions by
+weighted regression on sampled coalition values.
+@covertImprovingKernelSHAPPractical2021 improve this estimator by pairing each
+sampled coalition with its complement.
+
+We measure the distance between two share vectors as half the sum of absolute
+differences between shares (the half-L1 distance), using the full portfolio's
+P&L as the common denominator. History dispersion is the median pairwise
+distance between exact share vectors from five histories. It describes the
+dispersion across histories and is not a confidence interval.
+
+Sampling error is measured over repeated draws on each fixed history.
+@malekiBoundingEstimationError2013 bound the error of sampled Shapley estimates.
+Those bounds cover sampling error only, not uncertainty about the trading
+history.
+
+</Optional>
+
+<Optional title="The enumeration and sampling study in numbers" subtitle="coalition values needed, target precision, Owen, pairwise approximation" id="approximate-shapley-numbers">
+
+With 4, 6 and 8 signals, exact enumeration needed 16, 64 and 256 coalition
+values. Neither reverse-order pairs nor paired KernelSHAP attained the target
+precision with fewer values than that. We measured precision against the
+dispersion of exact shares across histories, which was 0.033–0.059 in half-L1
+distance, and required the worst history's 95th-percentile sampling error to be
+below a third of that dispersion.
+
+For the same signal counts, Owen's grouped value needed 12, 28 and 60
+coalition values. Its median distances to Shapley were 0.013–0.031 across the
+tested sizes and risk conventions. These distances measure the effect of the
+groups.
+
+The approximation that removes interactions above order two is exact with fixed
+$\gamma$, no position limit and no spread, because positions are then additive
+(section 3.5). It performed poorly on these constrained examples.
+
+</Optional>
+
+The [study module](/code/sim/signal_attribution/approximate_study.py) defines
+the eight-signal configuration and the sampling protocol, and the “Approximate
+Shapley” part of the [notebook in section
+3.5](#35-what-the-synthetic-comparison-finds) runs it.
+
+Follow a signal from its stand-alone value through its marginal contributions
+to different coalitions in the next figure.
+
+{/* @include f6-coalitions */}
+
+### 3.5 What the synthetic comparison finds
+
+import Fold from '../../../components/post/Fold.astro';
+import LazyNotebook from '../../../components/LazyNotebook.astro';
+
+<style>{`
+.synthetic-comparison p code { overflow-wrap: anywhere; }
+.synthetic-comparison table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: .9rem; }
+.synthetic-comparison th, .synthetic-comparison td { padding: .4rem; border-bottom: 1px solid var(--border-color); text-align: left; }
+.synthetic-comparison .exercise__fold { border: 1px solid var(--border-color); border-radius: 6px; margin: 1.5rem 0; }
+.synthetic-comparison .exercise__fold > summary { display: flex; align-items: center; gap: .5rem; padding: .8rem; font-weight: 600; }
+.synthetic-comparison .exercise__icon, .synthetic-comparison .exercise__chevron { width: 20px; height: 20px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.7; }
+.synthetic-comparison .exercise__chevron { margin-left: auto; }
+.synthetic-comparison details[open] .exercise__chevron { transform: rotate(90deg); }
+.synthetic-comparison .exercise__fold-content details { border-top: 1px solid var(--border-color); padding: .75rem 0; }
+.synthetic-comparison .exercise__fold-content details > summary { font-weight: 600; }
+.synthetic-comparison .exercise__fold-content { padding: 0 .8rem .8rem; min-width: 0; }
+`}</style>
+
+<div className="synthetic-comparison">
+
+The synthetic desk trades 50 assets on four signals, fast and slow versions of
+two scores A and B, under a spread cost and a position limit. The scenarios
+vary the spread, the number of signals, the innovation correlation (the
+correlation between the signals' innovations) and the position limit. The
+setup follows the figures.
+
+All methods receive the same signals and returns. Durin gives an exact
+internal allocation for this optimiser, so we use it as the benchmark for this
+comparison. Agreement with Durin does not make a contribution the only correct
+one.
+
+We compare two Shapley games: every coalition gets the same risk target, or
+every coalition uses the risk aversion $\gamma_t$ of the full portfolio at each
+date. The figures label them “Shapley · risk target” and “Shapley ·
+full-portfolio γ”.
+
+The stand-alone proxy method stays close to Durin when the spread is small and
+the signals are few. With a large spread, most of the variation of the P&L ends
+up in its residual. With strongly correlated signals, the method usually keeps
+only one signal. At the base configuration, its residual holds 42% of the P&L
+variance and its half-L1 distance from Durin is 0.19, against 0.045 and 0.037
+for the two Shapley games.
+
+{/* @include f13-pnl-paths */}
+
+{/* @include f5-signal-attribution */}
+
+<Optional title="The synthetic desk" subtitle="assets, signals, costs, bounds and seeds">
+
+A and B are scores. The planted coefficients describe how the scores predict
+returns, not the P&L shares left after costs and constraints.
+
+<div id="synthetic-setup">
+
+| Base configuration | Value |
+|---|---|
+| Assets; periods | 50; 1,000 |
+| Asset covariance | Diagonal; volatility 1 per period |
+| Portfolio risk target | 1 per period |
+| Scores | AR(1), unit marginal variance |
+| Innovation correlation | 0.3 between signals |
+| Quadratic cost | $\Lambda=\gamma_{\rm ref}\Sigma$ |
+| Spread per unit traded | $0.5\,\mathrm{std}(G)$ |
+| Absolute position limit | 1.5 equal-risk units, $1.5/\sqrt{50}$ per asset |
+| Study seeds | 20 per configuration |
+
+| Signal | Persistence | Planted coefficient |
+|---|---:|---:|
+| Fast A | 0.5 | 0.06 |
+| Slow A | 0.95 | 0.05 |
+| Fast B | 0.5 | 0.04 |
+| Slow B | 0.95 | 0.03 |
+| Mid A (six signals only) | 0.8 | 0.05 |
+| Mid B (six signals only) | 0.8 | 0.04 |
+
+</div>
+
+Returns are the sum of the planted signal components plus independent
+unit-volatility noise. Here $G$ is the combined forecast and
+$\gamma_{\rm ref}=\sqrt{50}\,\mathrm{std}(G)$ is the no-cost, no-bound risk
+aversion at the unit risk target. The quadratic cash cost is
+$\tfrac12\Delta x^\top\Lambda\Delta x$. The two-signal configuration keeps
+fast A and slow A. The six-signal configuration adds the two mid signals. Each
+configuration below changes only the named parameter from the base.
+
+The tables and the bar figure average 20 seeds per configuration. The P&L
+paths use one seed (20261029) of the same model and configurations.
+
+</Optional>
+
+<Optional title="The comparison in numbers" subtitle="distance, residual variance, convergence, cost variant, Shapley against Durin">
+
+**Iterated proxies compared with Durin.** The distance is the half-L1 distance
+of section 3.4 between the methods' cumulative net P&L shares, computed within
+each seed and then averaged. Zero means the same split. “Residual variance” is
+the residual's variance divided by the portfolio's P&L variance. The tables
+omit the position-limit scenarios, which the figures show.
+
+<div id="synthetic-results">
+
+| Configuration | Distance | Residual variance |
+|---|---:|---:|
+| Base (spread 0.5 std(G)) | 0.19 | 42% |
+| Zero spread | 0.029 | 8.4% |
+| Spread 1.0 std(G) | 0.43 | 88% |
+| Spread 2.0 std(G) | 0.49 | 99% |
+| Two signals | 0.059 | 19% |
+| Six signals | 0.32 | 74% |
+| Correlation 0.9 | 0.39 | 61% |
+
+| Configuration | Zero coefficients | Converged |
+|---|---:|---:|
+| Base (spread 0.5 std(G)) | 0.1 / 4 | 100% |
+| Zero spread | 0.0 / 4 | 100% |
+| Spread 1.0 std(G) | 1.2 / 4 | 35% |
+| Spread 2.0 std(G) | 3.0 / 4 | 0% |
+| Two signals | 0.0 / 2 | 100% |
+| Six signals | 1.5 / 6 | 65% |
+| Correlation 0.9 | 3.0 / 4 | 100% |
+
+</div>
+
+The spread is per unit traded, in multiples of $\mathrm{std}(G)$. Zero coefficients
+are the average number of dropped or zero-P&L proxies, out of the number of
+signals. Convergence requires every surviving proxy's coefficient to be within
+$10^{-3}$ of one after at most 50 iterations. A run with no surviving proxy
+does not count as converged.
+
+Even at zero spread, the risk target rescales the portfolio each period:
+removing a signal changes the risk aversion applied to the others, so the
+stand-alone runs do not reproduce the joint run. Identical proxy columns can
+also give non-unique NNLS solutions, so the fit may split identical signals
+unequally.
+
+The one-step regression's residual need not equal the total coalition
+interaction of section 3.4, $v(N)-\sum_k v(\{k\})=\sum_k(\phi_k-v(\{k\}))$.
+Regression absorbs part of the interaction into its coefficients, and the
+nonnegativity constraint also affects the residual. The residual is what the
+proxies leave unexplained, while the distance compares the signal allocations
+themselves.
+
+Costs vary little over time in this experiment: at the base configuration,
+their standard deviation is 2.5% of that of gross P&L.
+
+In a variant that fits gross P&L and then attaches each proxy's scaled costs,
+the distance moves from 0.19 to 0.18 and the residual variance from 41.6% to 42.4%.
+Separating costs therefore does not remove the construction interactions.
+
+With fixed risk aversion, no position limit and no spread, positions are
+additive. Gross P&L is then linear in the signal positions, and quadratic costs
+add pairwise cross terms; Shapley and Durin coincide, including the allocation
+of quadratic costs. This equality does not extend automatically to the
+nonlinear portfolio: at the base configuration the gap is the 0.045 and 0.037
+reported above. Shapley's contributions reconcile with the original P&L only if
+the rerun of the full coalition reproduces the original portfolio.
+
+</Optional>
+
+<Fold kind="solution" label="Code: reproduce the synthetic comparison">
+
+<a href={`${import.meta.env.BASE_URL}notebooks/signal-attribution.ipynb`} download>Download the executed notebook</a>.
+It also <a href={`${import.meta.env.BASE_URL}lab/`}>runs in the browser</a>, without installation. The first load fetches about 25 MB; all cells run in about 45 s.
+The notebook uses NumPy, SciPy and CVXPY (Clarabel solver). The code covers the
+optimiser, Durin's allocation and the other methods in section 3, then checks
+the base-configuration and large-spread paths of the P&L-paths figure and runs
+a dense-covariance example.
+
+<LazyNotebook />
+
+</Fold>
+
+</div>
+
+[↑ Sections](#)

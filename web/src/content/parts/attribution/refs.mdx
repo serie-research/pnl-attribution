@@ -1,0 +1,17 @@
+import HtmlEmbed from '../../../components/HtmlEmbed.astro';
+
+The graph shows the papers that we read for this page and the citations
+between them. Papers are placed by year from left to right, in three topic
+bands. Filled circles are papers this page cites, and arrows point from a paper
+to the papers of the same set that it cites. Selecting a paper shows its
+summary and the sections that cite it. The graph does not draw twelve other
+cited works, nor the papers on statistical testing that we read but do not
+cite.
+
+<div class="figure-wide" id="citation-graph">
+
+<HtmlEmbed src="w-citation-graph.html" data="citation-graph.json" title="Who cites whom in the papers read for this page" alt="Citation graph of the papers read for this page, placed by publication year in three topic bands; each paper opens a card with its short summary, the papers it cites and that cite it, and the sections of this page where it appears." />
+
+</div>
+
+All references cited on this page:

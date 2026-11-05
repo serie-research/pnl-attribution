@@ -1,0 +1,18 @@
+{
+  "source": "Constructed synthetic teaching game; editable integer P&L units, not simulation estimates.",
+  "names": [
+    "A",
+    "B",
+    "C"
+  ],
+  "values": [
+    0,
+    4,
+    3,
+    8,
+    4,
+    6,
+    9,
+    12
+  ]
+}

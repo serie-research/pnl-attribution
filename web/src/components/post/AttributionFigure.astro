@@ -1,0 +1,59 @@
+---
+import heights from '../embed-heights.json';
+import LazyEmbed from '../LazyEmbed.astro';
+import diagram from '../../content/embeds/w-i1-attribution.html?raw';
+import sketch from '../../content/embeds/w-i1-attribution-sketch.html?raw';
+interface Props { title: string; desc: string; alt: string; }
+const { title, desc, alt } = Astro.props;
+---
+<figure class="attribution-figure" aria-describedby="i1-alt">
+  <figcaption><strong>{title}</strong><p>{desc}</p></figcaption>
+  <p id="i1-alt" class="alt">{alt}</p>
+  <div class="switch" role="group" aria-label="Figure style">
+    <button type="button" data-style="diagram" aria-pressed="true" aria-controls="i1-diagram">Diagram</button>
+    <button type="button" data-style="sketch" aria-pressed="false" aria-controls="i1-sketch">Sketch</button>
+  </div>
+  <div id="i1-diagram" data-panel="diagram">
+    <LazyEmbed html={diagram} data="w-i1-attribution.json" height={704} narrowHeight={1161} sizes={heights["w-i1-attribution.json"]} />
+  </div>
+  <div id="i1-sketch" data-panel="sketch" hidden style="display:none">
+    <LazyEmbed html={sketch} data="w-i1-attribution.json" height={800} narrowHeight={1300} />
+  </div>
+</figure>
+<script is:inline>
+  // Inline so that the switch works even if a bundled module fails in some browser.
+  (function () {
+    var figure = document.currentScript.previousElementSibling;
+    if (!figure || !figure.classList.contains('attribution-figure')) return;
+    var key = 'attribution-section1-style';
+    function select(style) {
+      figure.querySelectorAll('[data-panel]').forEach(function (panel) {
+        var show = panel.getAttribute('data-panel') === style;
+        panel.hidden = !show;
+        panel.style.display = show ? '' : 'none';
+      });
+      figure.querySelectorAll('[data-style]').forEach(function (button) {
+        button.setAttribute('aria-pressed', String(button.getAttribute('data-style') === style));
+      });
+      window.dispatchEvent(new Event('resize'));
+    }
+    try { if (localStorage.getItem(key) === 'sketch') select('sketch'); } catch (e) {}
+    figure.addEventListener('click', function (event) {
+      var button = event.target.closest && event.target.closest('[data-style]');
+      if (!button || !figure.contains(button)) return;
+      var style = button.getAttribute('data-style');
+      select(style);
+      try { localStorage.setItem(key, style); } catch (e) {}
+    });
+  })();
+</script>
+<style>
+  .attribution-figure { margin: 1.5rem 0; }
+  figcaption p { margin: .35rem 0 .7rem; }
+  .alt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .switch { display: flex; gap: .35rem; margin-bottom: .65rem; }
+  button { font: inherit; font-size: .9rem; padding: .35rem .8rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--surface-bg); color: var(--text-color); cursor: pointer; }
+  button[aria-pressed="true"] { border-color: var(--primary-color); background: color-mix(in srgb, var(--primary-color) 14%, var(--page-bg)); }
+  button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 3px; }
+  [hidden] { display: none !important; }
+</style>

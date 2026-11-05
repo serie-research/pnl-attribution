@@ -1,0 +1,31 @@
+---
+const url = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}notebooks/signal-attribution/`;
+---
+<div data-notebook-fragment={url}><p role="status">Open the fold to load the notebook.</p></div>
+<script>
+  for (const host of document.querySelectorAll('[data-notebook-fragment]')) {
+    const fold = host.closest('details');
+    let loading = false;
+    let loaded = false;
+    async function load() {
+      if (!fold.open || loading || loaded) return;
+      loading = true;
+      host.innerHTML = '<p role="status">Loading…</p>';
+      host.setAttribute('aria-busy', 'true');
+      try {
+        const response = await fetch(host.dataset.notebookFragment);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        host.innerHTML = await response.text();
+        loaded = true;
+      } catch {
+        host.innerHTML = '<p role="status">Could not load the notebook. <button type="button">Retry</button></p>';
+        host.querySelector('button').addEventListener('click', load);
+      } finally {
+        loading = false;
+        host.removeAttribute('aria-busy');
+      }
+    }
+    fold.addEventListener('toggle', load);
+    load();
+  }
+</script>

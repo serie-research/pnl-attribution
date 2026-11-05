@@ -1,0 +1,1193 @@
+{
+ "groups": [
+  {
+   "key": "classical",
+   "label": "Classical attribution and risk"
+  },
+  {
+   "key": "signals",
+   "label": "Signals, Shapley and explanation methods"
+  },
+  {
+   "key": "execution",
+   "label": "Market making and execution"
+  }
+ ],
+ "sections": {
+  "0": {
+   "title": "Introduction",
+   "slug": "introduction"
+  },
+  "1": {
+   "title": "What it means to attribute a P&L",
+   "slug": "1-what-it-means-to-attribute-a-pl"
+  },
+  "2": {
+   "title": "The classical answers",
+   "slug": "2-the-classical-answers"
+  },
+  "3": {
+   "title": "Attributing a P&L to signals",
+   "slug": "3-attributing-a-pl-to-signals"
+  },
+  "4": {
+   "title": "Correlated indicators and the value of a subset",
+   "slug": "4-correlated-indicators-and-the-value-of-a-subset"
+  },
+  "5": {
+   "title": "Research directions",
+   "slug": "5-research-directions"
+  }
+ },
+ "outside": 12,
+ "nodes": [
+  {
+   "key": "shapleyValueNpersonGames1953",
+   "label": "Shapley 1953",
+   "title": "A value for n-person games",
+   "authors": [
+    "Lloyd S. Shapley"
+   ],
+   "year": 1953,
+   "type": "theoretical",
+   "themes": [
+    "Shapley value",
+    "interaction term",
+    "variance decomposition"
+   ],
+   "group": "signals",
+   "in": 11,
+   "out": 0,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "note",
+      "cite"
+     ]
+    },
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "A few axioms on how a value treats players fix a unique split of a cooperative game's worth. Each player receives its marginal contribution averaged over random orders of arrival."
+  },
+  {
+   "key": "aumannValuesNonAtomicGames1974",
+   "label": "Aumann 1974",
+   "title": "Values of Non-Atomic Games",
+   "authors": [
+    "Robert J. Aumann",
+    "Lloyd S. Shapley"
+   ],
+   "year": 1974,
+   "type": "book",
+   "themes": [
+    "Shapley value"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 1,
+   "cited": [],
+   "summary": "On a specified class of non-atomic games, the value is uniquely determined and can be represented by integrating marginal contributions along the diagonal of the coalition space."
+  },
+  {
+   "key": "owenValuesGamesPriori1977",
+   "label": "Owen 1977",
+   "title": "Values of Games with a Priori Unions",
+   "authors": [
+    "Guillermo Owen"
+   ],
+   "year": 1977,
+   "type": "theoretical",
+   "themes": [
+    "Shapley value",
+    "coalition structure"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 1,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Owen's value allocates a cooperative game's total through an exogenously specified partition, averaging the orders of unions and the orders of players within each union."
+  },
+  {
+   "key": "brinsonMeasuringNonUSEquity1985",
+   "label": "Brinson 1985",
+   "title": "Measuring non-U.S. equity portfolio performance",
+   "authors": [
+    "Gary Brinson",
+    "Nimrod Fachler"
+   ],
+   "year": 1985,
+   "type": "methodology",
+   "themes": [
+    "holdings-based attribution",
+    "Brinson allocation/selection",
+    "interaction term"
+   ],
+   "group": "classical",
+   "in": 0,
+   "out": 0,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "note",
+      "cite"
+     ]
+    }
+   ],
+   "summary": "The active return of an international equity portfolio over its benchmark splits exactly, market by market, into a country-allocation term, a within-country stock-selection term and a cross product, and the three sum to the portfolio return minus the benchmark return."
+  },
+  {
+   "key": "brinsonDeterminantsPortfolioPerformance1986",
+   "label": "Brinson 1986",
+   "title": "Determinants of Portfolio Performance",
+   "authors": [
+    "Gary Brinson",
+    "Randolph Hood",
+    "Gilbert Beebower"
+   ],
+   "year": 1986,
+   "type": "empirical",
+   "themes": [
+    "holdings-based attribution",
+    "Brinson allocation/selection",
+    "interaction term",
+    "variance decomposition"
+   ],
+   "group": "classical",
+   "in": 1,
+   "out": 0,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "On 91 US pension plans over 1974-1983, a passive policy portfolio built from long-run asset weights and index returns explains on average 93.6% of the time-series variance of each plan's quarterly return, while active timing and selection lost 1.10% a year on average."
+  },
+  {
+   "key": "peroldImplementationShortfallPaper1988",
+   "label": "Perold 1988",
+   "title": "The implementation shortfall: Paper versus reality",
+   "authors": [
+    "André F. Perold"
+   ],
+   "year": 1988,
+   "type": "methodology",
+   "themes": [
+    "implementation shortfall",
+    "transaction cost analysis",
+    "adverse selection",
+    "optimal execution"
+   ],
+   "group": "execution",
+   "in": 0,
+   "out": 0,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "cite"
+     ]
+    },
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "The gap between a costless \"paper\" portfolio, traded at the midprice prevailing when each decision is taken, and the real portfolio is an exact, additive sum of an execution cost on the trades done and an opportunity cost on the trades not done, and only this before-trade measure captures both."
+  },
+  {
+   "key": "sharpeAssetAllocationManagement1992",
+   "label": "Sharpe 1992",
+   "title": "Asset allocation: Management style and performance measurement",
+   "authors": [
+    "William Sharpe"
+   ],
+   "year": 1992,
+   "type": "methodology",
+   "themes": [
+    "returns-based style analysis",
+    "factor model",
+    "holdings-based attribution",
+    "out-of-sample predictability"
+   ],
+   "group": "classical",
+   "in": 1,
+   "out": 0,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "note",
+      "cite"
+     ]
+    }
+   ],
+   "summary": "A fund's *style* can be estimated from its returns alone by regressing them on a small set of investable asset-class indices with weights constrained to be nonnegative and sum to one; the residual, measured out of sample against that style mix, is the manager's selection return."
+  },
+  {
+   "key": "littermanHotSpotsHedges1996",
+   "label": "Litterman 1996",
+   "title": "Hot Spots and Hedges",
+   "authors": [
+    "Robert Litterman"
+   ],
+   "year": 1996,
+   "type": "methodology",
+   "themes": [
+    "risk decomposition",
+    "marginal contribution to risk",
+    "factor model"
+   ],
+   "group": "classical",
+   "in": 2,
+   "out": 0,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "note",
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Portfolio risk splits exactly into each position times its marginal risk. This split, not each position's own volatility, shows where risk comes from and which trades hedge it best."
+  },
+  {
+   "key": "grinoldActivePortfolioManagement2000",
+   "label": "Grinold 2000",
+   "title": "Active Portfolio Management: A Quantitative Approach for Producing Superior Returns and Controlling Risk",
+   "authors": [
+    "Richard Grinold",
+    "Ronald Kahn"
+   ],
+   "year": 2000,
+   "type": "book",
+   "themes": [
+    "holdings-based attribution",
+    "returns-based style analysis",
+    "factor model",
+    "risk decomposition",
+    "marginal contribution to risk",
+    "multi-period linking",
+    "information coefficient",
+    "breadth",
+    "fundamental law",
+    "portfolio constraints",
+    "data snooping",
+    "Sharpe ratio inference"
+   ],
+   "group": "classical",
+   "in": 3,
+   "out": 2,
+   "cited": [
+    {
+     "section": "1",
+     "as": [
+      "cite"
+     ]
+    },
+    {
+     "section": "2",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "The book builds active management on a structural factor model of risk and uses it to decompose ex ante risk into additive contributions, to attribute ex post active return to factors and a specific residual, and to evaluate a signal through the portfolio it produces."
+  },
+  {
+   "key": "lipovetskyAnalysisRegressionGame2001",
+   "label": "Lipovetsky 2001",
+   "title": "Analysis of regression in game theory approach",
+   "authors": [
+    "Stan Lipovetsky",
+    "Michael Conklin"
+   ],
+   "year": 2001,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "global feature importance",
+    "variance decomposition",
+    "multicollinearity"
+   ],
+   "group": "signals",
+   "in": 5,
+   "out": 0,
+   "cited": [
+    {
+     "section": "4",
+     "as": [
+      "note",
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Taking the R^{2} of OLS regressions on every subset of predictors as the characteristic function of a cooperative game, the Shapley value splits the full-model R^{2} into nonnegative shares that stay stable under bootstrap when predictors are strongly correlated, where OLS coefficients and their \"net effects\" are unstable and can be negative."
+  },
+  {
+   "key": "castroPolynomialCalculationShapley2009",
+   "label": "Castro 2009",
+   "title": "Polynomial calculation of the Shapley value based on sampling",
+   "authors": [
+    "Javier Castro",
+    "Daniel Gómez",
+    "Juan Tejada"
+   ],
+   "year": 2009,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "Shapley estimation"
+   ],
+   "group": "signals",
+   "in": 5,
+   "out": 1,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Averaging marginal contributions over uniformly sampled player orders gives unbiased Shapley estimates, and the proposed precision calculation uses a normal approximation."
+  },
+  {
+   "key": "grinoldBreadthSkillTime2011",
+   "label": "Grinold 2011",
+   "title": "Breadth, Skill, and Time",
+   "authors": [
+    "Richard Grinold",
+    "Ronald Kahn"
+   ],
+   "year": 2011,
+   "type": "theoretical",
+   "themes": [
+    "fundamental law",
+    "breadth",
+    "information coefficient",
+    "signals in trading"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 1,
+   "cited": [],
+   "summary": "Breadth in the fundamental law is the rate at which a signal's information turns over times the number of assets. A signal's IC therefore depends on the horizon over which it is measured."
+  },
+  {
+   "key": "gueantDealingInventoryRisk2013",
+   "label": "Guéant 2013",
+   "title": "Dealing with the inventory risk: a solution to the market making problem",
+   "authors": [
+    "Olivier Guéant",
+    "Charles-Albert Lehalle",
+    "Joaquin Fernandez-Tapia"
+   ],
+   "year": 2013,
+   "type": "model",
+   "themes": [
+    "market making",
+    "inventory risk",
+    "spread capture",
+    "adverse selection",
+    "high-frequency trading"
+   ],
+   "group": "execution",
+   "in": 2,
+   "out": 1,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "With a bound on inventory, the classical market-making problem reduces to a finite system of linear differential equations. Its solution gives the optimal quotes, which over long horizons depend only on inventory."
+  },
+  {
+   "key": "malekiBoundingEstimationError2013",
+   "label": "Maleki 2013",
+   "title": "Bounding the Estimation Error of Sampling-based Shapley Value Approximation",
+   "authors": [
+    "Sasan Maleki",
+    "Long Tran-Thanh",
+    "Greg Hines",
+    "Talal Rahwan",
+    "Alex Rogers"
+   ],
+   "year": 2013,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "Shapley estimation"
+   ],
+   "group": "signals",
+   "in": 1,
+   "out": 2,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Concentration bounds based on the range of the marginal contributions make the precision of permutation sampling explicit, and stratifying by coalition size allocates samples according to these bounds."
+  },
+  {
+   "key": "menkveldHighFrequencyTrading2013",
+   "label": "Menkveld 2013",
+   "title": "High frequency trading and the new market makers",
+   "authors": [
+    "Albert J. Menkveld"
+   ],
+   "year": 2013,
+   "type": "empirical",
+   "themes": [
+    "market making",
+    "inventory risk",
+    "adverse selection",
+    "spread capture",
+    "high-frequency trading",
+    "transaction cost analysis",
+    "holdings-based attribution",
+    "variance decomposition"
+   ],
+   "group": "execution",
+   "in": 3,
+   "out": 0,
+   "cited": [
+    {
+     "section": "2",
+     "as": [
+      "note",
+      "cite"
+     ]
+    },
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "An accounting identity splits one high-frequency trader's P&L into net spread earned and a loss on its positions. The trader earns the spread and gives part of it back on inventory held longer than a few seconds."
+  },
+  {
+   "key": "durinSignalwisePerformanceAttribution2014",
+   "label": "Durin 2014",
+   "title": "Signal-wise performance attribution for constrained portfolio optimisation",
+   "authors": [
+    "Bruno Durin"
+   ],
+   "year": 2014,
+   "type": "theoretical",
+   "themes": [
+    "signal-wise attribution",
+    "portfolio constraints",
+    "risk decomposition",
+    "transaction cost analysis",
+    "spread capture",
+    "signals in trading"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 3,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite",
+      "note"
+     ]
+    },
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "When a convex optimiser is driven by a sum of signals, active constraints and L1 costs become extra quadratic terms at the optimum. Positions, P&L, risk and costs then split exactly into one portfolio per signal."
+  },
+  {
+   "key": "owenSobolIndicesShapley2014",
+   "label": "Owen 2014",
+   "title": "Sobol' Indices and Shapley Value",
+   "authors": [
+    "Art B. Owen"
+   ],
+   "year": 2014,
+   "type": "theoretical",
+   "themes": [
+    "Shapley value",
+    "variance decomposition",
+    "global feature importance",
+    "interaction term"
+   ],
+   "group": "signals",
+   "in": 2,
+   "out": 2,
+   "cited": [
+    {
+     "section": "4",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "For independent inputs, an input's Shapley share of variance lies between the variance it explains alone and the variance it adds last (two Sobol' indices)."
+  },
+  {
+   "key": "barberControllingFalseDiscovery2015",
+   "label": "Barber 2015",
+   "title": "Controlling the false discovery rate via knockoffs",
+   "authors": [
+    "Rina Foygel Barber",
+    "Emmanuel J. Candès"
+   ],
+   "year": 2015,
+   "type": "methodology",
+   "themes": [
+    "knockoffs",
+    "FDR",
+    "multiple testing",
+    "replication"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 0,
+   "cited": [
+    {
+     "section": "4",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "A synthetic \"knockoff\" copy of each variable, with the same correlations, gives a selection threshold that controls the false discovery rate in finite samples. The basic construction needs a Gaussian linear regression with at least twice as many observations as variables."
+  },
+  {
+   "key": "carteaAlgorithmicHighFrequencyTrading2015",
+   "label": "Cartea 2015",
+   "title": "Algorithmic and High-Frequency Trading",
+   "authors": [
+    "Alvaro Cartea",
+    "Sebastian Jaimungal",
+    "Jose Penalva"
+   ],
+   "year": 2015,
+   "type": "book",
+   "themes": [
+    "market making",
+    "inventory risk",
+    "adverse selection",
+    "spread capture",
+    "implementation shortfall",
+    "transaction cost analysis",
+    "optimal execution",
+    "signals in trading",
+    "high-frequency trading"
+   ],
+   "group": "execution",
+   "in": 2,
+   "out": 2,
+   "cited": [],
+   "summary": "The book treats market making as stochastic control and splits the market maker's value into cash, inventory at the midprice and the value of quoting. Inventory risk and adverse selection shift the optimal quotes and the target inventory."
+  },
+  {
+   "key": "lundbergUnifiedApproachInterpreting2017",
+   "label": "Lundberg 2017",
+   "title": "A Unified Approach to Interpreting Model Predictions",
+   "authors": [
+    "Scott M. Lundberg",
+    "Su-In Lee"
+   ],
+   "year": 2017,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "SHAP",
+    "interpretability critique"
+   ],
+   "group": "signals",
+   "in": 5,
+   "out": 2,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite"
+     ]
+    },
+    {
+     "section": "4",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Six local explanation methods share one additive form; within it, only Shapley values of the model's conditional expectation have local accuracy, missingness and consistency. The paper calls them SHAP and gives estimators such as Kernel SHAP."
+  },
+  {
+   "key": "lehalleMarketMicrostructurePractice2018a",
+   "label": "Lehalle 2018",
+   "title": "Market Microstructure in Practice",
+   "authors": [
+    "Charles-Albert Lehalle",
+    "Sophie Laruelle"
+   ],
+   "year": 2018,
+   "type": "book",
+   "themes": [
+    "transaction cost analysis",
+    "implementation shortfall",
+    "optimal execution",
+    "market making",
+    "inventory risk",
+    "adverse selection",
+    "spread capture",
+    "high-frequency trading",
+    "signals in trading"
+   ],
+   "group": "execution",
+   "in": 1,
+   "out": 3,
+   "cited": [],
+   "summary": "For a practitioner, execution performance is measured against a benchmark chosen to fit the investment style and broken down into the terms of an Almgren–Chriss-type mean-variance cost; market impact grows concavely with participation rate and duration, and the market maker appears only through stylised models, not through an explicit P&L decomposition."
+  },
+  {
+   "key": "lehalleIncorporatingSignalsOptimal2019",
+   "label": "Lehalle 2019",
+   "title": "Incorporating signals into optimal trading",
+   "authors": [
+    "Charles-Albert Lehalle",
+    "Eyal Neuman"
+   ],
+   "year": 2019,
+   "type": "theoretical",
+   "themes": [
+    "optimal execution",
+    "signals in trading",
+    "high-frequency trading",
+    "market making",
+    "adverse selection",
+    "market impact"
+   ],
+   "group": "execution",
+   "in": 0,
+   "out": 2,
+   "cited": [
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Adding a Markovian price-drift signal to a linear transient-impact execution model keeps the problem strictly convex; for an Ornstein–Uhlenbeck signal, the optimal schedule is a liquidation part, linear in the initial inventory, plus a signal part, linear in the initial signal."
+  },
+  {
+   "key": "covertUnderstandingGlobalFeature2020",
+   "label": "Covert 2020",
+   "title": "Understanding Global Feature Contributions With Additive Importance Measures",
+   "authors": [
+    "Ian C. Covert",
+    "Scott Lundberg",
+    "Su-In Lee"
+   ],
+   "year": 2020,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "SHAP",
+    "global feature importance",
+    "variance decomposition"
+   ],
+   "group": "signals",
+   "in": 2,
+   "out": 4,
+   "cited": [
+    {
+     "section": "4",
+     "as": [
+      "cite"
+     ]
+    },
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "SAGE values a feature set by how much it reduces a fixed model's expected loss and takes the Shapley value of that game. It equals the average of SHAP values of the loss and unifies several global importance measures."
+  },
+  {
+   "key": "guEmpiricalAssetPricing2020",
+   "label": "Gu 2020",
+   "title": "Empirical asset pricing via machine learning",
+   "authors": [
+    "Shihao Gu",
+    "Bryan Kelly",
+    "Dacheng Xiu"
+   ],
+   "year": 2020,
+   "type": "empirical",
+   "themes": [
+    "machine learning in asset pricing",
+    "out-of-sample predictability",
+    "global feature importance",
+    "factor zoo",
+    "multiple testing",
+    "drawdown"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 0,
+   "cited": [],
+   "summary": "On 60 years of US stocks, regularised nonlinear predictors (trees, and above all shallow neural networks) beat linear benchmarks in out-of-sample return prediction, the gain is traced to predictor interactions, and all models rank the same small group of signals (price trends, liquidity, volatility) as most important."
+  },
+  {
+   "key": "virtufinancialMultiAssetTransactionCost2020",
+   "label": "Virtu Financial 2020",
+   "title": "Multi-Asset Transaction Cost Analysis",
+   "authors": [
+    "Virtu Financial"
+   ],
+   "year": 2020,
+   "type": "vendor-brochure",
+   "themes": [
+    "transaction cost analysis",
+    "implementation shortfall"
+   ],
+   "group": "execution",
+   "in": 0,
+   "out": 0,
+   "cited": [],
+   "summary": "A two-page vendor brochure that lists the features of Virtu's commercial TCA service across equities, FX, fixed income and futures; it describes no method."
+  },
+  {
+   "key": "covertImprovingKernelSHAPPractical2021",
+   "label": "Covert 2021",
+   "title": "Improving KernelSHAP: Practical Shapley Value Estimation Using Linear Regression",
+   "authors": [
+    "Ian Covert",
+    "Su-In Lee"
+   ],
+   "year": 2021,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "SHAP",
+    "global feature importance",
+    "variance decomposition",
+    "Shapley estimation"
+   ],
+   "group": "signals",
+   "in": 2,
+   "out": 7,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Pairing each sampled coalition with its complement and estimating the uncertainty make KernelSHAP more practical; a population-design version of the estimator is unbiased."
+  },
+  {
+   "key": "jethaniFastSHAPRealTimeShapley2022",
+   "label": "Jethani 2022",
+   "title": "FastSHAP: Real-Time Shapley Value Estimation",
+   "authors": [
+    "Neil Jethani",
+    "Mukund Sudarshan",
+    "Ian Covert",
+    "Su-In Lee",
+    "Rajesh Ranganath"
+   ],
+   "year": 2022,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "SHAP",
+    "Shapley estimation"
+   ],
+   "group": "signals",
+   "in": 1,
+   "out": 7,
+   "cited": [
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "FastSHAP trains a network to predict Shapley values directly, so that each later explanation takes one forward pass."
+  },
+  {
+   "key": "mitchellSamplingPermutationsShapley2022",
+   "label": "Mitchell 2022",
+   "title": "Sampling Permutations for Shapley Value Estimation",
+   "authors": [
+    "Rory Mitchell",
+    "Joshua Cooper",
+    "Eibe Frank",
+    "Geoffrey Holmes"
+   ],
+   "year": 2022,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "SHAP",
+    "Shapley estimation"
+   ],
+   "group": "signals",
+   "in": 2,
+   "out": 3,
+   "cited": [
+    {
+     "section": "3",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Structured permutations can reduce the integration error of Shapley estimates; estimator bias, generation overhead and the cost of evaluating the game are separate questions."
+  },
+  {
+   "key": "muscoProvablyAccurateShapley2025",
+   "label": "Musco 2025",
+   "title": "Provably Accurate Shapley Value Estimation via Leverage Score Sampling",
+   "authors": [
+    "Christopher Musco",
+    "R. Teal Witter"
+   ],
+   "year": 2025,
+   "type": "methodology",
+   "themes": [
+    "Shapley value",
+    "SHAP",
+    "Shapley estimation"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 6,
+   "cited": [
+    {
+     "section": "5",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Leverage-score sampling approximates the Shapley regression objective with high probability, with an error bound set by the game's regression residual."
+  },
+  {
+   "key": "melouxDeadSalmonsAI2025",
+   "label": "Méloux 2025",
+   "title": "The Dead Salmons of AI Interpretability",
+   "authors": [
+    "Maxime Méloux",
+    "Giada Dirupo",
+    "François Portet",
+    "Maxime Peyrard"
+   ],
+   "year": 2025,
+   "type": "review",
+   "themes": [
+    "interpretability critique",
+    "multiple testing",
+    "replication",
+    "causality"
+   ],
+   "group": "signals",
+   "in": 0,
+   "out": 0,
+   "cited": [
+    {
+     "section": "4",
+     "as": [
+      "cite"
+     ]
+    }
+   ],
+   "summary": "Interpretability methods give plausible explanations even for randomly initialised networks, because the questions they answer are not identifiable. The authors treat each method as a statistical estimator and test it against random networks as null models."
+  },
+  {
+   "key": "paleologoElementsQuantitativeInvesting2025",
+   "label": "Paleologo 2025",
+   "title": "The Elements of Quantitative Investing",
+   "authors": [
+    "Giuseppe Paleologo"
+   ],
+   "year": 2025,
+   "type": "book",
+   "themes": [
+    "holdings-based attribution",
+    "factor model",
+    "risk decomposition",
+    "marginal contribution to risk",
+    "information coefficient",
+    "breadth",
+    "fundamental law",
+    "interaction term",
+    "backtest overfitting",
+    "multiple testing",
+    "data snooping",
+    "factor zoo",
+    "Sharpe ratio inference",
+    "replication",
+    "high-frequency trading"
+   ],
+   "group": "classical",
+   "in": 0,
+   "out": 1,
+   "cited": [
+    {
+     "section": "1",
+     "as": [
+      "cite"
+     ]
+    },
+    {
+     "section": "2",
+     "as": [
+      "cite",
+      "note"
+     ]
+    }
+   ],
+   "summary": "The book treats ex post performance attribution as an estimation problem: the factor/idiosyncratic split of P&L carries a computable standard error, and the P&L credited to each of several correlated factors changes with their rotation while the total does not."
+  }
+ ],
+ "edges": [
+  {
+   "source": "aumannValuesNonAtomicGames1974",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "carteaAlgorithmicHighFrequencyTrading2015",
+   "target": "gueantDealingInventoryRisk2013"
+  },
+  {
+   "source": "carteaAlgorithmicHighFrequencyTrading2015",
+   "target": "menkveldHighFrequencyTrading2013"
+  },
+  {
+   "source": "castroPolynomialCalculationShapley2009",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "castroPolynomialCalculationShapley2009"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "covertUnderstandingGlobalFeature2020"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "lipovetskyAnalysisRegressionGame2001"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "lundbergUnifiedApproachInterpreting2017"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "malekiBoundingEstimationError2013"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "owenSobolIndicesShapley2014"
+  },
+  {
+   "source": "covertImprovingKernelSHAPPractical2021",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "covertUnderstandingGlobalFeature2020",
+   "target": "lipovetskyAnalysisRegressionGame2001"
+  },
+  {
+   "source": "covertUnderstandingGlobalFeature2020",
+   "target": "lundbergUnifiedApproachInterpreting2017"
+  },
+  {
+   "source": "covertUnderstandingGlobalFeature2020",
+   "target": "owenSobolIndicesShapley2014"
+  },
+  {
+   "source": "covertUnderstandingGlobalFeature2020",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "durinSignalwisePerformanceAttribution2014",
+   "target": "brinsonDeterminantsPortfolioPerformance1986"
+  },
+  {
+   "source": "durinSignalwisePerformanceAttribution2014",
+   "target": "grinoldActivePortfolioManagement2000"
+  },
+  {
+   "source": "durinSignalwisePerformanceAttribution2014",
+   "target": "littermanHotSpotsHedges1996"
+  },
+  {
+   "source": "grinoldActivePortfolioManagement2000",
+   "target": "littermanHotSpotsHedges1996"
+  },
+  {
+   "source": "grinoldActivePortfolioManagement2000",
+   "target": "sharpeAssetAllocationManagement1992"
+  },
+  {
+   "source": "grinoldBreadthSkillTime2011",
+   "target": "grinoldActivePortfolioManagement2000"
+  },
+  {
+   "source": "gueantDealingInventoryRisk2013",
+   "target": "menkveldHighFrequencyTrading2013"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "castroPolynomialCalculationShapley2009"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "covertImprovingKernelSHAPPractical2021"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "covertUnderstandingGlobalFeature2020"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "lipovetskyAnalysisRegressionGame2001"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "lundbergUnifiedApproachInterpreting2017"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "mitchellSamplingPermutationsShapley2022"
+  },
+  {
+   "source": "jethaniFastSHAPRealTimeShapley2022",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "lehalleIncorporatingSignalsOptimal2019",
+   "target": "carteaAlgorithmicHighFrequencyTrading2015"
+  },
+  {
+   "source": "lehalleIncorporatingSignalsOptimal2019",
+   "target": "lehalleMarketMicrostructurePractice2018a"
+  },
+  {
+   "source": "lehalleMarketMicrostructurePractice2018a",
+   "target": "carteaAlgorithmicHighFrequencyTrading2015"
+  },
+  {
+   "source": "lehalleMarketMicrostructurePractice2018a",
+   "target": "gueantDealingInventoryRisk2013"
+  },
+  {
+   "source": "lehalleMarketMicrostructurePractice2018a",
+   "target": "menkveldHighFrequencyTrading2013"
+  },
+  {
+   "source": "lundbergUnifiedApproachInterpreting2017",
+   "target": "lipovetskyAnalysisRegressionGame2001"
+  },
+  {
+   "source": "lundbergUnifiedApproachInterpreting2017",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "malekiBoundingEstimationError2013",
+   "target": "castroPolynomialCalculationShapley2009"
+  },
+  {
+   "source": "malekiBoundingEstimationError2013",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "mitchellSamplingPermutationsShapley2022",
+   "target": "castroPolynomialCalculationShapley2009"
+  },
+  {
+   "source": "mitchellSamplingPermutationsShapley2022",
+   "target": "lundbergUnifiedApproachInterpreting2017"
+  },
+  {
+   "source": "mitchellSamplingPermutationsShapley2022",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "muscoProvablyAccurateShapley2025",
+   "target": "castroPolynomialCalculationShapley2009"
+  },
+  {
+   "source": "muscoProvablyAccurateShapley2025",
+   "target": "covertImprovingKernelSHAPPractical2021"
+  },
+  {
+   "source": "muscoProvablyAccurateShapley2025",
+   "target": "jethaniFastSHAPRealTimeShapley2022"
+  },
+  {
+   "source": "muscoProvablyAccurateShapley2025",
+   "target": "lundbergUnifiedApproachInterpreting2017"
+  },
+  {
+   "source": "muscoProvablyAccurateShapley2025",
+   "target": "mitchellSamplingPermutationsShapley2022"
+  },
+  {
+   "source": "muscoProvablyAccurateShapley2025",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "owenSobolIndicesShapley2014",
+   "target": "lipovetskyAnalysisRegressionGame2001"
+  },
+  {
+   "source": "owenSobolIndicesShapley2014",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "owenValuesGamesPriori1977",
+   "target": "shapleyValueNpersonGames1953"
+  },
+  {
+   "source": "paleologoElementsQuantitativeInvesting2025",
+   "target": "grinoldActivePortfolioManagement2000"
+  }
+ ]
+}

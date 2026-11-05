@@ -1,0 +1,58 @@
+\documentclass[tikz,dvisvgm,border=1pt]{standalone}
+\input{common}
+% Route of the page: from the order diagnostic of real-time TCA (introduction)
+% to explaining a P&L, with sections 1-5 as stations and their anchors.
+\begin{document}
+\begin{tikzpicture}
+\ifnarrow
+  \def\stations{%
+    1/{What it means to attribute a P\&L}/{reference P\&L, residual},
+    2/{The classical answers}/{Brinson 1985/86, Litterman 1996, factor models, Menkveld's ledger},
+    3/{Attributing a P\&L to signals}/{proxies, leave-one-out, Durin 2014, Grinold--Easton, Shapley 1953},
+    4/{Correlated indicators}/{Shapley $R^2$, SHAP, SAGE},
+    5/{Research directions}/{ledger, signals, later extensions}}
+  \node[box, fill=surface, text width=250pt, align=left, anchor=north west] (start) at (0,0) {%
+    \textbf{Diagnosing orders} {\color{muted}(real-time TCA)}\\
+    \smallfont which orders are bad, and when: threshold rules on descriptors, influence scores};
+  \foreach \n/\t/\a [count=\i] in \stations {
+    \coordinate (s\n) at (14pt,-26pt-\i*46pt);
+    \fill[info] (s\n) circle (8pt) node[white, font=\smallfont\bfseries] {\n};
+    \node[right, text width=222pt, align=left, inner sep=0pt] at ($(s\n)+(14pt,0)$)
+      {\textbf{\t}\\{\smallfont\color{muted}\a}};
+  }
+  \begin{pgfonlayer}{background}
+    \draw[info, line width=2pt] (start.south -| s1) -- (s5);
+    \draw[info, line width=2pt, -{Stealth[length=8pt,width=8pt]}] (s5) -- ++(0,-24pt) coordinate (e);
+  \end{pgfonlayer}
+  \node[box, fill=surface, text width=250pt, align=left, anchor=north west] at (e -| start.west) {%
+    \textbf{Explaining a P\&L}\\
+    \smallfont contributions that reconcile, shared information};
+\else
+  \def\stations{%
+    1/{Attributing a P\&L}/{reference P\&L, residual},
+    2/{Classical answers}/{Brinson 1985/86, Litterman 1996, factor models, Menkveld's ledger},
+    3/{Signals}/{proxies, leave-one-out, Durin 2014, Grinold--Easton, Shapley 1953},
+    4/{Correlated indicators}/{Shapley $R^2$, SHAP, SAGE},
+    5/{Research directions}/{ledger, signals, later extensions}}
+  \node[box, fill=surface, text width=60pt, align=left] (start) at (0,0) {%
+    \textbf{Diagnosing orders}\\{\smallfont\color{muted}real-time TCA}\\[2pt]
+    \smallfont bad orders, threshold rules, influence scores};
+  \foreach \n/\t/\a [count=\i] in \stations {
+    \coordinate (s\n) at (30pt+\i*58pt,0);
+    \fill[info] (s\n) circle (8pt) node[white, font=\smallfont\bfseries] {\n};
+    \node[above=11pt of s\n, anchor=south, text width=56pt, align=center, inner sep=0pt]
+      {\textbf{\t}};
+    \node[below=11pt of s\n, anchor=north, text width=56pt, align=center, inner sep=0pt, small,
+      text=muted] {\a};
+  }
+  \begin{pgfonlayer}{background}
+    \draw[info, line width=2pt] (start.east) -- (s5);
+    \draw[info, line width=2pt, -{Stealth[length=8pt,width=8pt]}] (s5) -- ++(22pt,0) coordinate (e);
+  \end{pgfonlayer}
+  \node[box, fill=surface, text width=60pt, align=left, right=2pt of e] {%
+    \textbf{Explaining a P\&L}\\[2pt]
+    \smallfont contributions that reconcile, shared information};
+\fi
+\drawcard
+\end{tikzpicture}
+\end{document}

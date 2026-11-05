@@ -1,0 +1,60 @@
+---
+// Usage: <ReferenceList />
+// The references of the post, by year: every paper of papers.json. Each item has the id
+// "bib-<key>" that the in-text citations [@key] link to, and links to the sections where
+// the paper appears (resolved in the browser from the section numbers of the headings).
+import { papers } from "./papers";
+const list = [...papers].sort((a, b) => a.year - b.year || a.authors.localeCompare(b.authors));
+const sectionName = (s: string) => ((s === "intro" || s === "0") ? "introduction" : s);
+---
+<ol class="reference-list">
+  {list.map((p) => {
+    const link = p.pdf ?? p.url;
+    const sections = Array.from(new Set(p.appears.map((a) => a.section)));
+    return (
+      <li id={`bib-${p.key.toLowerCase()}`}>
+        <span class="reference-list__year">{p.year}</span>
+        <span>
+          <span class="reference-list__authors">{p.authors.endsWith(".") ? p.authors : `${p.authors}.`}</span>{" "}
+          {link ? <a href={link} target="_blank" rel="noopener noreferrer">{p.title}</a> : <em>{p.title}</em>}{/[.?!]$/.test(p.title) ? "" : "."}{" "}
+          <span class="reference-list__venue">{p.venue}.</span>{" "}
+          {p.note && <><span class="reference-list__note">{p.note}</span>{" "}</>}
+          <span class="reference-list__sections">
+            {sections.map((s, i) => (
+              <>{i > 0 && ", "}<a class="reference-list__section" data-section={s} href="#">{sectionName(s)}</a></>
+            ))}
+          </span>
+        </span>
+      </li>
+    );
+  })}
+</ol>
+
+<script>
+  // Turn the section numbers into links to their headings ("2" -> "2. Counting...", "2.1" -> "2.1 Markov Model").
+  const setup = () => {
+    const headings = Array.from(document.querySelectorAll<HTMLElement>("main h2[id], main h3[id], main h4[id]"));
+    document.querySelectorAll<HTMLAnchorElement>("a.reference-list__section").forEach((a) => {
+      const s = a.dataset.section || "";
+      if (s === "0") { a.href = "#introduction"; return; }
+      const top = !s.includes(".");
+      const pattern = new RegExp("^" + s.replace(/\./g, "\\.") + (top ? "\\.\\s" : "\\s"));
+      const h = headings.find((el) => (top ? el.tagName === "H2" : el.tagName !== "H2") && pattern.test((el.textContent || "").trim()));
+      if (h) a.href = `#${h.id}`;
+      else a.removeAttribute("href");
+    });
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", setup, { once: true });
+  else setup();
+</script>
+
+<style is:global>
+  .reference-list { list-style: none; padding: 0; margin: var(--spacing-3) 0; font-size: 0.9rem; }
+  .reference-list li { display: flex; gap: 12px; padding: 6px 0; border-top: 1px solid var(--border-color); scroll-margin-top: 80px; }
+  .reference-list li:target { background: color-mix(in oklab, var(--primary-color) 10%, transparent); }
+  .reference-list__year { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted-color); min-width: 2.6em; }
+  .reference-list__authors { font-weight: 600; }
+  .reference-list__venue { color: var(--muted-color); }
+  .reference-list__sections { color: var(--muted-color); white-space: nowrap; }
+  .reference-list__sections::before { content: "§ "; }
+</style>

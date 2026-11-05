@@ -1,0 +1,101 @@
+{/* @include i1-attribution */}
+
+To assign amounts to indicators, we need a total and a reference. Against an
+index, the total is the active return: the portfolio return minus the index
+return over the same interval.
+
+For a trading portfolio, one reference is a *paper portfolio*: the trades
+intended at decision time, valued without execution costs. A market maker has
+no such list of intended trades (section 2.5). We can also fix a valuation rule, such as marking every position
+at the midprice, and explain the resulting P&L. We state the reference with
+every result, because the contributions change with it.
+
+An attribution writes the difference as
+
+$$
+\Pi-\Pi^{\mathrm{ref}}=\sum_j \Pi_j+\varepsilon.
+$$
+
+Here $\Pi$ is the realised P&L, $\Pi^{\mathrm{ref}}$ the reference P&L, $\Pi_j$
+the contribution of component $j$ and $\varepsilon$ the residual.
+
+We report the residual as its own term, so that the reader sees how much of the
+total the chosen model leaves unexplained. Because the residual is whatever the
+components leave, the components and the residual always sum to the total, so
+the equality alone says nothing about why the P&L arose.
+
+### 1.1 What daily snapshots miss
+
+@paleologoElementsQuantitativeInvesting2025 [p. 335] records positions at fixed
+snapshots, such as each close, and splits realised P&L into *position P&L*,
+what those positions would earn if held to the next snapshot, and *trading
+P&L*, the rest. Intraday alpha, spread earned and execution costs all fall into
+trading P&L, so explaining them needs the fills and the inventory path, or a
+model of how the signals produced the trades.
+
+<Optional title="Position and trading P&L in detail" subtitle="factor and specific P&L, a portfolio flat at every snapshot">
+
+A factor model divides position P&L into *factor P&L* and *specific P&L*
+(section 2.3). Trading P&L is realised P&L minus position P&L, so it holds all
+gains and losses from trades between snapshots. If a portfolio is flat at every
+snapshot of a daily attribution, its position P&L is zero and all realised P&L
+is trading P&L, even though the portfolio carried inventory and factor risk
+between snapshots.
+
+</Optional>
+
+### 1.2 Information and accounting interval
+
+An attribution also depends on what was known when: exposures recorded before
+returns test the bets declared in advance
+[@grinoldActivePortfolioManagement2000, p. 479], whereas exposures fitted
+afterwards, as in returns-based style analysis, test an explanation chosen with
+hindsight. Currency P&L adds up across periods, while daily percentage
+contributions compound and need a *linking* rule to sum to the period return.
+
+<Optional title="Exposures, holdings and linking in detail" subtitle="ex ante and ex post, holdings-based and returns-based, compounding">
+
+An exposure measures the portfolio's sensitivity to a factor. *Ex ante*
+analysis uses exposures and a risk model recorded before returns occur. *Ex
+post* analysis combines them with realised returns.
+
+Holdings-based attribution uses observed positions. Returns-based attribution
+estimates exposures by regressing portfolio returns on index returns, as in
+Sharpe's style analysis (section 2.2), and these estimates may differ from the
+positions actually held.
+
+Currency P&L adds up across non-overlapping periods on a consistent accounting
+basis, but percentage returns compound. The period return is
+$\prod_t(1+R_t)-1$, not $\sum_t R_t$, so daily percentage contributions do not
+sum to it. A linking rule rescales them. Working in currency avoids linking
+but still needs reference prices and a rule to share interaction terms, such as
+Brinson's in section 2.1.
+
+</Optional>
+
+### 1.3 Two kinds of indicator
+
+Indicators also differ in the role they play in trading.
+
+**Signals used to take positions.** A forecast enters the trading policy and
+may change its trades. If we can rerun the policy, we can remove signals, run
+them alone or combine subsets. These runs share one market path and one risk
+convention, and what each signal earned depends on both. Section 3 shares the resulting P&L
+between signals, and section 4 explains why that differs from sharing
+predictive information between indicators.
+
+**State indicators.** Spread, volatility and market order flow describe the
+conditions in which gains and losses occur, and the policy need not use them as
+inputs. Inventory and the desk's own orders are different: the desk's signals
+produce them, so they belong with the policy, and their link with the P&L
+partly reflects the signals.
+
+We can first split the P&L in the fill records into spread and inventory P&L
+(section 2.5), then relate each part to the state indicators (section 4).
+
+The same variable can play both roles. A volatility forecast fed to the policy
+is a signal, and removing it before rerunning the policy changes the trades.
+Realised volatility used to compare fills in calm and volatile periods is a
+state indicator; the comparison is descriptive.
+
+[↑ Sections](#)

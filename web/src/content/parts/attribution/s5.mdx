@@ -1,0 +1,173 @@
+import Optional from '../../../components/post/Optional.astro';
+import PaperNote from '../../../components/post/PaperNote.astro';
+
+A desk can trust an attribution of its P&L once two questions are settled:
+which amounts do its fill records explain, and how much did each signal earn?
+Projects 5.1 and 5.2 take them in that order. Both start in simulation, where
+the answer is known by construction, and fix in advance the result that would
+stop them. Project 5.3 is later work; its stopping rules will be set once 5.1
+and 5.2 have results.
+
+<div role="region" aria-label="Summary of the research projects" tabIndex="0" style={{ maxWidth: "100%", overflowX: "auto" }}>
+
+| Project | Question | Decision it informs | First experiment | What would stop us |
+| --- | --- | --- | --- | --- |
+| [5.1](#51-a-reference-price-for-the-ledger) Fill records | At what markout horizon does the price move after a fill stop reverting, and which reference price does that horizon set? | How wide and how skewed to quote, how long to hold inventory, whether hedges offset inventory P&L | A simulated market with a planted permanent price impact; markouts at growing horizons, and whether the horizon where they stop reverting recovers that impact | The price move up to the horizon where markouts stop reverting misses the planted impact by more than the tolerance |
+| [5.2](#52-signals-how-much-each-one-earned) Signals | When can a cheap method replace full reruns, for reporting what each signal earned and for dropping or resizing a signal? | Which method the desk can afford for each use | Cheap methods compared with quantities computed from every rerun, across spread, signal count and correlation | No cheap method is within tolerance near the desk's settings, or one-history error bars miss the target too often |
+| [5.3](#53-state-indicators-and-opaque-policies) Extensions | Can state indicators, or a policy without usable optimality equations, be attributed in the same way? | Which costs to monitor; how far to trust the explanation of a black-box policy | Defined after 5.1 and 5.2 | Chosen once 5.1 and 5.2 have results |
+
+</div>
+
+### 5.1 A reference price for the ledger
+
+**Question.** At what horizon does the price move after a fill stop reverting?
+The fill records add up exactly, but their split into spread earned and
+inventory P&L ([section 2.5](#25-spread-and-inventory-a-market-makers-pl))
+depends on the reference price. Desks measure markouts at growing horizons: 1 s, 10 s, 1 min,
+5 min and longer. The horizon at which the average markout stops reverting
+sets the reference price that separates spread earned from inventory gains and
+losses.
+
+**First experiment.** We simulate a market maker whose fills move the price
+permanently by a set amount, which is the information its counterparties
+trade on, and transitorily by an amount that reverts. Because the permanent
+impact is planted, we know what the market maker loses to it. We compute the
+markouts at growing horizons, find the horizon at which they stop reverting,
+and check that the price move up to that horizon recovers the planted impact.
+
+**What would stop us.** The tolerance is fixed before the first run, for
+example ±10% of the planted impact. We stop if the price move up to the
+horizon at which markouts stop reverting misses the planted impact by more
+than the tolerance. Spread and inventory P&L would then still add up without
+telling the desk what it loses to better-informed counterparties.
+
+<span id="ledger-data"></span>
+
+**Data.** Each fill's time, side, price, size and status; own and market quotes;
+inventory and hedges; fees and rebates.
+
+<Optional title="The simulated model and the reference prices" subtitle="informed traders, permanent and transitory impact, what we report">
+
+**Simulated model.** The simulation follows the classical models of trading
+with informed counterparties, such as Kyle's
+[@bouchaudTradesQuotesPrices2018, chap. 15] and Glosten and Milgrom's: a dealer
+loses on its trades with informed traders, and each trade moves the price
+permanently by the information it reveals.
+Menkveld [@menkveldHighFrequencyTrading2013, pp. 21–23] splits midprice changes into a
+permanent part, which reflects information, and a transitory part, which
+reverts; he estimates this split with a state-space model, not per fill. The simulation plants both
+parts, so the markout curve can be checked against a known permanent impact.
+
+**Reference prices.** Menkveld's accounting and the decision-time paper
+portfolio of @peroldImplementationShortfallPaper1988 use different references,
+and neither says which one to use when quotes are revised continuously. We
+reconcile the same fills against the midprice just before the fill, a
+consolidated midprice and the midprices at each markout horizon, keeping total
+wealth, hedge P&L, fees and rebates fixed. We report spread and inventory P&L
+per fill and per unit traded, with their variation across repeated
+simulations. A later midprice also contains unrelated moves; the planted
+impact checks that the average markout curve separates the permanent part
+from them.
+
+</Optional>
+
+### 5.2 Signals: how much each one earned
+
+**Question.** When can a cheap method replace full reruns, and how much does
+each quantity move by chance? A signal attribution serves three uses, each with
+its own quantity. For a report whose shares add up, and a policy we can rerun,
+we choose as target the Shapley shares over reruns of the policy on subsets of
+signals [@shapleyValueNpersonGames1953]. Dropping a
+signal needs the P&L lost when it alone is removed, net of costs and measured
+on days not used to build the policy. Resizing a signal needs the value of a
+small change in its weight.
+
+**Target.** We compute it from every rerun on the simulator: Shapley shares
+above a declared reference policy, removal losses and marginal values.
+
+**First experiment.** We measure how far each cheap method is from each target,
+across spread, number of signals, correlation and constraints. Separately, we
+compute 90% error bars on one history by resampling blocks of days. We then
+check that these bars contain the target's average over many simulated
+histories in about 90% of histories. This tells us whether one history is
+enough to measure a share's chance variation. We report the sampling error of coalition reruns
+separately, against that history's exact shares.
+
+**What would stop us.** As in 5.1, the tolerances are fixed in advance, one per
+target; for example, they could be 5 percentage points for a Shapley share, 5%
+of the total P&L for a removal loss, and the right sign and a relative error
+below 20% for a marginal value. We stop if no cheap method meets them near the
+desk's settings; reruns would then be unavoidable. We also stop if the error
+bars contain the target in fewer than 90% of histories, beyond simulation
+noise.
+
+<span id="signal-data"></span>
+
+**Data.** Decision-time signals, positions, costs, risk settings, initial
+inventory and a policy we can rerun. The aggregate P&L alone cannot recover what
+the policy would have done without a signal. A rerun keeps the recorded market
+path: it assumes fills at observed prices, or a declared fill model for passive
+orders, and no market impact of the desk's own trades
+[@bouchaudTradesQuotesPrices2018, p. 402]. We state that assumption with
+every share we report.
+
+<Optional title="Reference policy, cheap methods, comparison, many signals and execution">
+
+**Reference policy.** The empty coalition is the declared reference policy. It
+may still hedge or unwind initial inventory. The shares allocate the increment
+above it. Section 3 set the reference policy to no trading, so the empty
+coalition was worth zero there. Another reference policy, such as trading on a
+reference forecast, changes only the Shapley shares. The removal losses and
+marginal values compare runs that both keep the other signals, so they do not
+depend on the reference policy.
+
+**Cheap methods.** Section 3 gives two: the stand-alone proxy, and the
+optimiser's split, which needs no rerun but requires the optimiser's equations
+[@durinSignalwisePerformanceAttribution2014]. In the synthetic study of section
+3.5, the proxy moves away from the others as spread, the number of signals or a
+positive correlation between them increases. That study used the optimiser's
+split as its benchmark, because its pieces add up exactly for that optimiser;
+here it is one of the methods compared with the target.
+
+**Comparison.** We compare residuals, reconciliation and distances between
+shares, and their sensitivity to correlation and to binding constraints. We
+first reproduce the case where Shapley and Durin agree (fixed risk aversion,
+no constraints, no spread), then interpret the differences.
+
+**Many signals.** Coalition reruns must then be sampled, or grouped as in
+section 3.4. A
+regression estimator with an accuracy guarantee
+[@muscoProvablyAccurateShapley2025] helps set the rerun budget. FastSHAP
+[@jethaniFastSHAPRealTimeShapley2022] instead trains a model to predict the
+shares directly.
+
+**Signals in the execution schedule.** With a signal, the optimal execution
+schedule splits into a liquidation part plus a signal part
+[@lehalleIncorporatingSignalsOptimal2019, p. 9, Eq. 2.9]. Its impact cost,
+quadratic in the schedule, then contains a cross term between the two parts
+(our derivation). We propose to share that cross term between the two parts
+with a stated coalition rule.
+
+</Optional>
+
+### 5.3 State indicators and opaque policies
+
+- **State indicators.** Once the reference price is fixed, we relate spread and inventory P&L to state indicators such as the quoted spread, volatility and market order flow, with the Shapley games of section 4. These shares divide predictive information about each part, not realised P&L [@covertUnderstandingGlobalFeature2020], and must hold on later days.
+- **Opaque policies.** Rule-based and learned policies have no optimality equations to use. We would train a surrogate model that predicts the policy's positions from its inputs, check that it reproduces the policy on held-out cases, and only then attribute through it. Removing a signal from the surrogate's inputs needs a removal operator, and each operator defines a different attribution (section 3.3). Even then, we would be assuming that the surrogate's attributions carry over to the policy.
+
+<Optional title="What each extension needs" subtitle="data, and sources on opaque policies in practice">
+
+**State indicators.** This needs the reference price and markout horizon of
+5.1, and the indicators as known at each decision.
+
+**Opaque policies.** Black-box trading in practice includes rule-based
+automation; it need not mean a learned position-taking policy.
+@gueantReinforcementLearningMethods2023 [p. 200] reviews reinforcement learning
+for trading and finds that published applications so far only show
+feasibility.
+@kissellAlgorithmicTradingMethods2021 describes a network that gives an
+optimiser a starting point; the optimiser still runs to find the solution.
+
+</Optional>
+
+[↑ Sections](#)

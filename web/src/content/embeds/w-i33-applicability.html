@@ -1,0 +1,275 @@
+<div class="w-i33">
+<svg class="map" role="group" aria-label="Decision map with two questions. Question 1: is the policy a known convex optimiser with a quadratic risk or cost term whose optimality equations are available? Question 2: can we rerun the policy with signals removed? Each policy type leads to the attribution methods that apply, with the runs they need and whether their contributions sum to the total. Each method links to its subsection."></svg>
+<p class="detail" aria-live="polite"></p>
+</div>
+<style>
+[data-embed] .w-i33 { padding: 14px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--page-bg); color: var(--text-color); font: 14px/1.5 var(--default-font-family, sans-serif);
+  --ink: var(--text-color); --w-q: color-mix(in srgb, var(--text-color) 8%, var(--page-bg)); --w-chip: var(--page-bg);
+  --w-inside: var(--primary-color); --w-rerun: var(--info-color); --w-record: var(--success-color); }
+[data-theme="dark"] [data-embed] .w-i33 { --w-inside: color-mix(in srgb, var(--primary-color) 85%, white); --w-rerun: color-mix(in srgb, var(--info-color) 75%, white); --w-record: color-mix(in srgb, var(--success-color) 75%, white); }
+[data-embed] .w-i33 svg { display: block; width: 100%; height: auto; overflow: visible; }
+[data-embed] .w-i33 svg text { font-family: var(--default-font-family, sans-serif); fill: var(--ink); white-space: pre; }
+[data-embed] .w-i33 .muted text, [data-embed] .w-i33 text.muted { fill: var(--muted-color); }
+[data-embed] .w-i33 .q rect { fill: var(--w-q); stroke: none; }
+[data-embed] .w-i33 .answer.inside text { fill: var(--w-inside); } [data-embed] .w-i33 .answer.rerun text { fill: var(--w-rerun); } [data-embed] .w-i33 .answer.record text { fill: var(--w-record); }
+[data-embed] .w-i33 .policy rect { fill: var(--w-chip); stroke: var(--border-color); stroke-width: 1px; }
+[data-embed] .w-i33 .method rect { stroke: none; }
+[data-embed] .w-i33 .method.inside rect { fill: color-mix(in srgb, var(--w-inside) 12%, var(--page-bg)); }
+[data-embed] .w-i33 .method.rerun rect { fill: color-mix(in srgb, var(--w-rerun) 12%, var(--page-bg)); }
+[data-embed] .w-i33 .method.record rect { fill: color-mix(in srgb, var(--w-record) 12%, var(--page-bg)); }
+[data-embed] .w-i33 .method.note rect { fill: none; stroke: color-mix(in srgb, var(--w-record) 45%, var(--page-bg)); stroke-dasharray: 4 3; }
+[data-embed] .w-i33 a { cursor: pointer; } [data-embed] .w-i33 a:focus { outline: none; }
+[data-embed] .w-i33 a:hover .ctitle text, [data-embed] .w-i33 a:focus-visible .ctitle text { text-decoration: underline; text-underline-offset: 2px; }
+[data-embed] .w-i33 a.method:focus-visible rect { stroke: var(--ink); stroke-width: 1.5px; }
+[data-embed] .w-i33 .wire { fill: none; stroke-width: 1.3px; }
+[data-embed] .w-i33 .wire.spine { stroke: var(--muted-color); }
+[data-embed] .w-i33 .wire.inside { stroke: var(--w-inside); } [data-embed] .w-i33 .wire.rerun { stroke: var(--w-rerun); } [data-embed] .w-i33 .wire.record { stroke: var(--w-record); }
+[data-embed] .w-i33 [data-for] { transition: opacity .15s; }
+[data-embed] .w-i33 svg.focus [data-for]:not(.on) { opacity: .25; }
+[data-embed] .w-i33 .on.wire { stroke-width: 2.4px; } [data-embed] .w-i33 .on.wire.spine { stroke: var(--ink); }
+[data-embed] .w-i33 .on.policy.inside rect, [data-embed] .w-i33 .on.method.inside rect { stroke: var(--w-inside); stroke-width: 2px; }
+[data-embed] .w-i33 .on.policy.rerun rect, [data-embed] .w-i33 .on.method.rerun rect { stroke: var(--w-rerun); stroke-width: 2px; }
+[data-embed] .w-i33 .on.policy.record rect, [data-embed] .w-i33 .on.method.record rect { stroke: var(--w-record); stroke-width: 2px; }
+[data-embed] .w-i33 .detail { min-height: 3em; margin: 10px 2px 0; font-size: 14px; line-height: 1.45; color: var(--muted-color); }
+[data-embed] .w-i33 .detail b { color: var(--text-color); }
+[data-embed] .w-i33 sub, [data-embed] .w-i33 sup { font-size: .72em; line-height: 0; }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const box = root.querySelector('.w-i33');
+  const svgEl = box.querySelector('svg');
+  const detail = box.querySelector('.detail');
+  const uid = 'w-i33-' + Math.random().toString(36).slice(2, 8);
+
+  // Rich SVG text with wrapping. Markup: **bold**, *italic*, _{sub}, ^{sup}, !{overline}, \n = line break.
+  const ctx = document.createElement('canvas').getContext('2d');
+  const family = () => getComputedStyle(svgEl).fontFamily || 'sans-serif';
+  function parse(str, bold) {
+    const out = []; let b = !!bold, i = false, buf = '', k = 0;
+    const push = (t, s = 0, o = false) => { if (t) out.push({ t, b, i, s, o }); };
+    while (k < str.length) {
+      if (str.startsWith('**', k)) { push(buf); buf = ''; b = !b; k += 2; }
+      else if (str[k] === '*') { push(buf); buf = ''; i = !i; k++; }
+      else if (str[k] === '!' && str[k + 1] === '{') { push(buf); buf = ''; const end = str.indexOf('}', k); push(str.slice(k + 2, end), 0, true); k = end + 1; }
+      else if ((str[k] === '_' || str[k] === '^') && str[k + 1] === '{') {
+        push(buf); buf = ''; const end = str.indexOf('}', k);
+        push(str.slice(k + 2, end), str[k] === '_' ? 1 : -1); k = end + 1;
+      } else { buf += str[k]; k++; }
+    }
+    push(buf); return out;
+  }
+  const fontOf = (r, size) => `${r.i ? 'italic ' : ''}${r.b ? 600 : 400} ${r.s ? size * 0.72 : size}px ${family()}`;
+  const measure = (r, size) => { ctx.font = fontOf(r, size); return ctx.measureText(r.t).width; };
+  function words(str, size, bold) {
+    const ws = [[]];
+    // A word may also break after a hyphen, a dash or a slash; the pieces are glued (no space).
+    for (const r of parse(str, bold)) r.t.split(' ').forEach((p, j) => {
+      if (j) ws.push([]);
+      p.split(/(?<=[-–\/])(?=.)/).forEach((q, k) => { if (k) { ws.push([]); ws.at(-1).glue = true; } if (q) ws.at(-1).push({ ...r, t: q }); });
+    });
+    return ws.filter(w => w.length).map(runs => {
+      let width = 0;
+      runs.forEach((r, j) => {
+        r.w = measure(r, size);
+        const prev = runs[j - 1];
+        if (r.s === -1 && prev && prev.s === 1) { r.dx = -prev.w; width += Math.max(0, r.w - prev.w); r.after = Math.max(0, prev.w - r.w); }
+        else width += r.w;
+      });
+      return { runs, width, glue: !!runs.glue };
+    });
+  }
+  function layout(str, maxW, size, bold) {
+    const lines = [];
+    for (const para of String(str).split('\n')) {
+      let line = null;
+      const space = measure({ t: ' ', b: false, i: false, s: 0 }, size);
+      // Glued pieces (a word split after a hyphen) break apart only when the whole word cannot fit on a line.
+      const chains = [];
+      for (const w of words(para, size, bold)) { if (w.glue && chains.length) chains.at(-1).push(w); else chains.push([w]); }
+      const add = w => {
+        const sp = w.glue ? 0 : space;
+        if (line && line.width + sp + w.width <= maxW) { line.words.push(w); line.width += sp + w.width; }
+        else { line = { words: [w], width: w.width }; lines.push(line); }
+      };
+      for (const chain of chains) {
+        const cw = d3.sum(chain, w => w.width);
+        if (chain.length > 1 && cw <= maxW && line && line.width + space + cw > maxW) line = null;
+        if (chain.length > 1 && cw <= maxW) {
+          if (line) { line.words.push(...chain); line.width += space + cw; } else { line = { words: chain, width: cw }; lines.push(line); }
+        } else chain.forEach(add);
+      }
+    }
+    return { lines, width: d3.max(lines, l => l.width) || 0 };
+  }
+  function draw(parent, str, { x, y, w = 1e4, size = 13, lh = size * 1.28, anchor = 'start', bold = false, fill = null, cls = '' }) {
+    const lay = layout(str, w, size, bold);
+    lay.lines.forEach((line, n) => {
+      const x0 = anchor === 'middle' ? x - line.width / 2 : anchor === 'end' ? x - line.width : x;
+      const text = parent.append('text').attr('x', x0).attr('y', y + n * lh + size * 0.9).attr('class', cls).style('font-size', size + 'px');
+      if (fill) text.style('fill', fill);
+      let cur = 0, pending = 0; const bars = [];
+      line.words.forEach((word, j) => {
+        word.runs.forEach((r, m) => {
+          const target = r.s === 1 ? size * 0.24 : r.s === -1 ? -size * 0.4 : 0;
+          const t = text.append('tspan').text((j && !m && !word.glue ? ' ' : '') + r.t).attr('dy', target - cur);
+          cur = target;
+          if (r.b) t.style('font-weight', 600); if (r.i) t.style('font-style', 'italic');
+          if (r.s) t.style('font-size', size * 0.72 + 'px');
+          if (r.o) bars.push([t.node(), size]);
+          if (r.dx) t.attr('dx', r.dx); else if (pending) t.attr('dx', pending);
+          pending = r.after || 0;
+        });
+      });
+      for (const [node, sz] of bars) {
+        try {
+          const k = node.getNumberOfChars() - 1, a = node.getStartPositionOfChar(k), b = node.getEndPositionOfChar(k);
+          parent.append('line').attr('x1', a.x + sz * 0.12).attr('x2', b.x + sz * 0.08).attr('y1', a.y - sz * 0.8).attr('y2', a.y - sz * 0.8)
+            .style('stroke', 'var(--ink)').attr('stroke-width', 0.9);
+        } catch { /* not rendered yet */ }
+      }
+    });
+    return { height: lay.lines.length ? (lay.lines.length - 1) * lh + size * 1.2 : 0, width: lay.width };
+  }
+
+  const toHTML = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/_\{(.+?)\}/g, '<sub>$1</sub>').replace(/\^\{(.+?)\}/g, '<sup>$1</sup>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+  const plain = s => s.replace(/\*|[_^!]\{|\}/g, '');
+  const secName = s => /^\d/.test(s) ? `section ${s}` : s;
+  let data = null, active = null, linkBase = '';
+  const href = id => document.getElementById(id) ? `#${id}` : `${linkBase}attribution/#${id}`;
+  const idle = 'Hover over or focus a policy type to see its path through the two questions and the methods that apply. Each method links to its subsection.';
+
+  function render() {
+    if (!data) return;
+    const W = svgEl.clientWidth || 400, wide = W >= 600;
+    const svg = d3.select(svgEl); svg.selectAll('*').remove();
+    const defs = svg.append('defs');
+    for (const [k, c] of [['spine', 'var(--muted-color)'], ['inside', 'var(--w-inside)'], ['rerun', 'var(--w-rerun)'], ['record', 'var(--w-record)']])
+      defs.append('marker').attr('id', `${uid}-${k}`).attr('viewBox', '0 0 10 10').attr('refX', 9.5).attr('refY', 5).attr('markerWidth', 8).attr('markerHeight', 8)
+        .attr('markerUnits', 'userSpaceOnUse').attr('orient', 'auto').append('path').attr('d', 'M0,0 L10,5 L0,10 L2.5,5 z').style('fill', c);
+    const wires = svg.append('g').attr('class', 'wires'), nodes = svg.append('g');
+    const fs = 13, sm = wide ? 12 : 12.5, qs = 14, pad = 7;
+    const hidden = fn => { const g = svg.append('g').attr('visibility', 'hidden'); const h = fn(g); g.remove(); return h; };
+    const byKey = list => k => list.find(d => d.key === k);
+    const policy = byKey(data.policies), method = byKey(data.methods);
+    // Columns: spine, answer labels and policy cards, then methods (to the right when wide, below the cards otherwise).
+    const spineX = wide ? 8 : 6, lx = wide ? 22 : 18;
+    const cw = wide ? Math.min(210, Math.round(W * 0.3)) : W - lx;
+    const mx = wide ? lx + cw + 34 : lx + 22, mw = W - mx;
+    const metaW = wide ? Math.min(160, Math.round(mw * 0.36)) : 0;
+    const busX = wide ? lx + cw + 16 : lx + 10;
+
+    const cardText = (p, x, y, w, g) => {
+      const h1 = draw(g.append('g').attr('class', 'ctitle'), `**${p.title}**`, { x, y, w, size: fs }).height;
+      return h1 + 3 + draw(g.append('g').attr('class', 'muted'), p.text, { x, y: y + h1 + 3, w, size: sm }).height;
+    };
+    const methodText = (m, x, y, w, g) => {
+      const tw = wide && m.runs ? w - metaW - 12 : w;
+      const h1 = draw(g.append('g').attr('class', 'ctitle'), `**${m.title}** (${m.sec})`, { x, y, w: tw, size: fs }).height;
+      let h = h1 + 2 + draw(g.append('g').attr('class', 'muted'), m.text, { x, y: y + h1 + 2, w: tw, size: sm }).height;
+      if (!m.runs) return h;
+      const meta = g.append('g').attr('class', 'meta');
+      const x2 = wide ? x + w - metaW : x, y2 = wide ? y : y + h + 4, w2 = wide ? metaW : w;
+      const r = draw(meta, `**Runs:** ${m.runs}`, { x: x2, y: y2, w: w2, size: sm }).height;
+      const s = draw(meta, `**Sum:** ${m.sum}`, { x: x2, y: y2 + r + 2, w: w2, size: sm }).height;
+      return wide ? Math.max(h, r + 2 + s) : h + 4 + r + 2 + s;
+    };
+
+    let y = 0;
+    const qbox = {};
+    // Every path starts at question 1; question 2 lies on the paths of its own groups.
+    function question(q, n) {
+      const later = data.questions.slice(n).map(d => d.key);
+      const forKeys = data.groups.filter(g => later.includes(g.q)).flatMap(g => g.policies);
+      const str = `**${q.label}.** ${q.text}`;
+      const h = hidden(g => draw(g, str, { x: 0, y: 0, w: W - 20, size: qs }).height) + 16;
+      const g = nodes.append('g').attr('class', 'q').attr('data-for', forKeys.join(' '));
+      g.append('rect').attr('x', 0).attr('y', y).attr('width', W).attr('height', h).attr('rx', 6);
+      draw(g, str, { x: 10, y: y + 8, w: W - 20, size: qs });
+      qbox[q.key] = { top: y, bottom: y + h };
+      y += h;
+    }
+    function group(gr) {
+      y += 12;
+      const fam = gr.family, forKeys = gr.policies.join(' ');
+      const lab = nodes.append('g').attr('class', `answer ${fam}`).attr('data-for', forKeys);
+      const lh = draw(lab, `**${gr.answer}**`, { x: lx, y, w: W - lx, size: fs }).height;
+      wires.append('path').attr('class', 'wire spine').attr('data-for', forKeys).attr('d', `M${spineX},${qbox[gr.q].bottom} V${y + fs * 0.62} H${lx - 5}`);
+      y += lh + 6;
+      const top = y, ps = gr.policies.map(policy);
+      const cards = [];
+      if (wide) {
+        let cy = top;
+        for (const p of ps) { const h = hidden(g => cardText(p, 0, 0, cw - 2 * pad, g)) + 2 * pad; cards.push({ p, x: lx, y: cy, w: cw, h }); cy += h + 6; }
+      } else {
+        const w = (W - lx - (ps.length - 1) * 8) / ps.length;
+        const h = Math.max(...ps.map(p => hidden(g => cardText(p, 0, 0, w - 2 * pad, g)))) + 2 * pad;
+        ps.forEach((p, i) => cards.push({ p, x: lx + i * (w + 8), y: top, w, h }));
+      }
+      const cardsBottom = d3.max(cards, c => c.y + c.h);
+      for (const c of cards) {
+        const a = nodes.append('a').attr('class', `policy ${fam}`).attr('data-key', c.p.key).attr('data-for', c.p.key).attr('href', href(c.p.id))
+          .attr('aria-label', `${c.p.title}: ${plain(c.p.text)}. ${secName(c.p.sec)}.`);
+        a.append('rect').attr('x', c.x).attr('y', c.y).attr('width', c.w).attr('height', c.h).attr('rx', 5);
+        cardText(c.p, c.x + pad, c.y + pad, c.w - 2 * pad, a);
+      }
+      let my = wide ? top : cardsBottom + 12;
+      for (const m of gr.methods.map(method)) {
+        const h = hidden(g => methodText(m, 0, 0, mw - 2 * pad, g)) + 2 * pad;
+        const a = nodes.append('a').attr('class', `method ${fam}${m.runs ? '' : ' note'}`).attr('data-key', m.key).attr('data-for', forKeys).attr('href', href(m.id))
+          .attr('aria-label', `${m.title}, ${secName(m.sec)}: ${plain(m.text)}.${m.runs ? ` Runs: ${plain(m.runs)}. Sum: ${plain(m.sum)}.` : ''}`);
+        a.append('rect').attr('x', mx).attr('y', my).attr('width', mw).attr('height', h).attr('rx', 5);
+        methodText(m, mx + pad, my + pad, mw - 2 * pad, a);
+        const mid = my + h / 2;
+        for (const c of cards) {
+          const d = wide ? `M${c.x + c.w},${c.y + c.h / 2} H${busX} V${mid} H${mx - 2}`
+            : `M${c.x + 10},${c.y + c.h} V${cardsBottom + 5} H${busX} V${mid} H${mx - 2}`;
+          wires.append('path').attr('class', `wire ${fam}`).attr('data-for', c.p.key).attr('d', d).attr('marker-end', `url(#${uid}-${fam})`);
+        }
+        my += h + 6;
+      }
+      y = Math.max(cardsBottom, my - 6);
+    }
+
+    const [q1, q2] = data.questions;
+    question(q1, 0);
+    data.groups.filter(g => g.q === q1.key).forEach(group);
+    // The "no" answer of question 1 leads to question 2.
+    y += 12;
+    const toQ2 = data.groups.filter(g => g.q === q2.key).flatMap(g => g.policies).join(' ');
+    const link = nodes.append('g').attr('class', 'answer link').attr('data-for', toQ2);
+    const lh = draw(link, `**${data.link.answer}:** ${data.link.text}`, { x: lx, y, w: W - lx, size: fs }).height;
+    y += lh + 12;
+    question(q2, 1);
+    wires.append('path').attr('class', 'wire spine').attr('data-for', toQ2).attr('d', `M${spineX},${qbox[q1.key].bottom} V${qbox[q2.key].top - 1}`).attr('marker-end', `url(#${uid}-spine)`);
+    data.groups.filter(g => g.q === q2.key).forEach(group);
+    const H = Math.ceil(y + 2);
+    svg.attr('viewBox', `0 0 ${W} ${H}`).attr('height', H);
+    svg.selectAll('a.policy').on('mouseenter focus', function () { setActive(this.dataset.key); }).on('mouseleave blur', () => setActive(null));
+    paint();
+  }
+
+  // Highlight the active policy's path: questions, answers, its card, its wires and its methods; no redraw.
+  function paint() {
+    const svg = d3.select(svgEl).classed('focus', !!active);
+    svg.selectAll('[data-for]').classed('on', function () { return !!active && this.dataset.for.split(' ').includes(active); });
+    svg.selectAll('.wire.on').raise();
+  }
+
+  function setActive(key) {
+    if (key === active) return;
+    active = key;
+    paint();
+    const p = active && data.policies.find(d => d.key === active);
+    detail.innerHTML = p ? `<b>${toHTML(p.title)}.</b> ${toHTML(p.detail)}` : idle;
+    box.dataset.active = active || '';
+  }
+
+  linkBase = root.dataset.url.replace(/data\/[^/]*$/, '');
+  d3.json(root.dataset.url).then(d => {
+    data = d; detail.textContent = idle;
+    new ResizeObserver(() => render()).observe(svgEl);
+    render(); box.dataset.ready = 'true';
+  }).catch(error => { detail.textContent = `Could not load figure: ${error.message}`; });
+})();
+</script>

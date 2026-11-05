@@ -1,0 +1,433 @@
+<div class="w-cg">
+<div class="controls">
+  <input type="search" class="search" placeholder="Search an author or a title" aria-label="Search the papers by author or title" />
+  <div class="groups" role="group" aria-label="Groups shown"></div>
+  <div class="toggles">
+    <label class="chk"><input type="checkbox" class="only-cited" /> Cited on this page only</label>
+    <label class="chk"><input type="checkbox" class="chains" /> Follow whole citation chains</label>
+  </div>
+</div>
+<p class="help">Hover, focus or tap a paper: solid arrows come from the papers that cite it, dashed arrows go to the papers it cites. Click or press Enter to keep the card open; Escape closes it.</p>
+<p class="status" aria-live="polite"></p>
+<div class="stage">
+  <svg class="graph" role="group" aria-label="Citation graph of the papers read for this page. Each paper is placed by publication year and topic band; arrows go from a citing paper to a cited paper. Each paper is a focusable button that opens a card with its summary and links."></svg>
+  <div class="card" hidden aria-live="polite"></div>
+  <p class="side-hint">Select a paper to read its summary here.</p>
+</div>
+</div>
+<style>
+[data-embed] .w-cg { padding: 14px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--page-bg); color: var(--text-color); font: 14px/1.5 var(--default-font-family, sans-serif);
+  --g-classical: #7b4f9e; --g-signals: #187c9b; --g-pitfalls: #c65928; --g-execution: #35814c; --w-edge: var(--muted-color); --w-hl: var(--text-color); --w-card-shadow: 0 6px 24px rgba(0, 0, 0, .14); }
+[data-theme="dark"] [data-embed] .w-cg { --g-classical: #b897d6; --g-signals: #5db7d4; --g-pitfalls: #ee8d5f; --g-execution: #72c08a; --w-card-shadow: 0 6px 24px rgba(0, 0, 0, .5); }
+[data-embed] .w-cg .controls { display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; }
+[data-embed] .w-cg .search { font: inherit; font-size: 14px; min-height: 32px; padding: 4px 8px; width: 260px; max-width: 100%; color: var(--text-color); background: var(--page-bg); border: 1px solid var(--border-color); border-radius: 6px; }
+[data-embed] .w-cg .groups, [data-embed] .w-cg .toggles { display: flex; flex-wrap: wrap; gap: 4px 16px; }
+[data-embed] .w-cg .groups { order: 3; flex-basis: 100%; }
+[data-embed] .w-cg label.chk { display: inline-flex !important; align-items: center; gap: 6px; font-size: 14px !important; line-height: 1.4; cursor: pointer; }
+[data-embed] .w-cg label.chk input { margin: 0; accent-color: var(--text-color); }
+[data-embed] .w-cg .sw { display: inline-block; width: 11px; height: 11px; border-radius: 50%; background: var(--c); }
+[data-embed] .w-cg .help, [data-embed] .w-cg .status { margin: 8px 0 0; font-size: 14px; color: var(--muted-color); }
+[data-embed] .w-cg .status { margin-top: 2px; }
+[data-embed] .w-cg .stage { position: relative; margin-top: 8px; }
+[data-embed] .w-cg svg.graph { display: block; width: 100%; height: auto; overflow: visible; }
+[data-embed] .w-cg svg text { font-family: var(--default-font-family, sans-serif); fill: var(--text-color); }
+[data-embed] .w-cg svg .muted { fill: var(--muted-color); }
+[data-embed] .w-cg .lane rect { stroke: none; }
+[data-embed] .w-cg .lane.classical rect { fill: color-mix(in srgb, var(--g-classical) 7%, var(--page-bg)); } [data-embed] .w-cg .lane.classical text { fill: var(--g-classical); }
+[data-embed] .w-cg .lane.signals rect { fill: color-mix(in srgb, var(--g-signals) 7%, var(--page-bg)); } [data-embed] .w-cg .lane.signals text { fill: var(--g-signals); }
+[data-embed] .w-cg .lane.pitfalls rect { fill: color-mix(in srgb, var(--g-pitfalls) 7%, var(--page-bg)); } [data-embed] .w-cg .lane.pitfalls text { fill: var(--g-pitfalls); }
+[data-embed] .w-cg .lane.execution rect { fill: color-mix(in srgb, var(--g-execution) 7%, var(--page-bg)); } [data-embed] .w-cg .lane.execution text { fill: var(--g-execution); }
+[data-embed] .w-cg .lane text tspan.n { fill: var(--muted-color); font-weight: 400; }
+[data-embed] .w-cg .grid line { stroke: var(--grid-color); stroke-width: 1px; }
+[data-embed] .w-cg .grid line.break { stroke: var(--muted-color); stroke-opacity: .55; stroke-dasharray: 3 4; }
+[data-embed] .w-cg .axis line, [data-embed] .w-cg .axis path { stroke: var(--muted-color); stroke-width: 1px; fill: none; }
+[data-embed] .w-cg .decade line { stroke: var(--border-color); }
+[data-embed] .w-cg .key circle { stroke-width: 1.6px; }
+[data-embed] .w-cg .key .filled { fill: var(--muted-color); stroke: var(--page-bg); } [data-embed] .w-cg .key .outline { fill: var(--page-bg); stroke: var(--muted-color); }
+[data-embed] .w-cg .key path { stroke: var(--muted-color); fill: none; stroke-width: 1.3px; }
+[data-embed] .w-cg .edge { fill: none; stroke: var(--w-edge); stroke-opacity: .32; stroke-width: 1px; transition: stroke-opacity .15s, opacity .15s; }
+[data-embed] .w-cg .node { cursor: pointer; transition: opacity .15s; }
+[data-embed] .w-cg .node:focus { outline: none; }
+[data-embed] .w-cg .node circle.dot { stroke-width: 1.8px; }
+[data-embed] .w-cg .node.cited circle.dot { stroke: var(--page-bg); stroke-width: 1px; }
+[data-embed] .w-cg .node:not(.cited) circle.dot { fill: var(--page-bg); }
+[data-embed] .w-cg .node.classical.cited circle.dot { fill: var(--g-classical); } [data-embed] .w-cg .node.classical:not(.cited) circle.dot { stroke: var(--g-classical); }
+[data-embed] .w-cg .node.signals.cited circle.dot { fill: var(--g-signals); } [data-embed] .w-cg .node.signals:not(.cited) circle.dot { stroke: var(--g-signals); }
+[data-embed] .w-cg .node.pitfalls.cited circle.dot { fill: var(--g-pitfalls); } [data-embed] .w-cg .node.pitfalls:not(.cited) circle.dot { stroke: var(--g-pitfalls); }
+[data-embed] .w-cg .node.execution.cited circle.dot { fill: var(--g-execution); } [data-embed] .w-cg .node.execution:not(.cited) circle.dot { stroke: var(--g-execution); }
+[data-embed] .w-cg .node circle.hit { fill: transparent; stroke: none; }
+[data-embed] .w-cg .node text { font-size: 12.5px; paint-order: stroke; stroke: var(--page-bg); stroke-width: 3px; stroke-linejoin: round; }
+[data-embed] .w-cg .node.cited text { font-weight: 600; }
+[data-embed] .w-cg .node:not(.cited) text { fill: var(--muted-color); }
+[data-embed] .w-cg.narrow .node text { font-size: 13px; }
+[data-embed] .w-cg .node circle.ring { fill: none; stroke: none; stroke-width: 2px; }
+[data-embed] .w-cg .node.focus circle.ring, [data-embed] .w-cg .node:focus-visible circle.ring, [data-embed] .w-cg .node.match circle.ring { stroke: var(--w-hl); }
+[data-embed] .w-cg svg.active .node:not(.focus):not(.ref):not(.citer) { opacity: .16; }
+[data-embed] .w-cg svg.active .edge { stroke-opacity: .07; }
+[data-embed] .w-cg svg.active .edge.ref, [data-embed] .w-cg svg.active .edge.citer { stroke: var(--w-hl); stroke-opacity: .85; stroke-width: 1.6px; }
+[data-embed] .w-cg svg.active .edge.ref:not(.citer) { stroke-dasharray: 5 3; }
+[data-embed] .w-cg svg.searching:not(.active) .node.nomatch { opacity: .2; }
+[data-embed] .w-cg svg.searching:not(.active) .edge { stroke-opacity: .12; }
+[data-embed] .w-cg svg marker path { fill: var(--w-hl); fill-opacity: .85; }
+[data-embed] .w-cg .card { position: absolute; z-index: 2; width: 360px; max-width: 100%; padding: 10px 14px 12px; background: var(--page-bg); border: 1px solid var(--border-color); border-left: 4px solid var(--c, var(--border-color)); border-radius: 8px; box-shadow: var(--w-card-shadow); font-size: 14px; line-height: 1.45; }
+[data-embed] .w-cg .card p { margin: 6px 0 0; font-size: 14px; line-height: 1.45; }
+[data-embed] .w-cg .card .meta { margin: 0; padding-right: 26px; color: var(--muted-color); font-size: 13px; }
+[data-embed] .w-cg .card .title { font-weight: 600; }
+[data-embed] .w-cg .card .authors { color: var(--muted-color); }
+[data-embed] .w-cg .card a { color: inherit; text-decoration: underline; text-decoration-color: var(--link-underline, currentColor); text-underline-offset: 2px; }
+[data-embed] .w-cg .card button.go { font: inherit; font-size: 13px; min-height: 0; padding: 0 5px; margin: 1px 0; border: 1px solid var(--border-color); border-radius: 4px; background: transparent; color: var(--text-color); cursor: pointer; }
+[data-embed] .w-cg .card button.go:hover, [data-embed] .w-cg .card button.go:focus-visible { border-color: var(--text-color); }
+[data-embed] .w-cg .card .close { position: absolute; top: 4px; right: 6px; font: inherit; font-size: 18px; line-height: 1; min-height: 0; width: 26px; height: 26px; padding: 0; border: 0; background: transparent; color: var(--muted-color); cursor: pointer; }
+[data-embed] .w-cg .card sub, [data-embed] .w-cg .card sup { font-size: .72em; line-height: 0; }
+/* Phone: a sheet at the bottom of the screen, so the highlighted rows and arcs stay visible. */
+/* Wide screens: the card has its own column beside the graph and never covers it. */
+[data-embed] .w-cg .stage.side { display: grid; grid-template-columns: minmax(0, 1fr) var(--side-w); column-gap: var(--side-gap); align-items: start; }
+[data-embed] .w-cg .stage.side .card, [data-embed] .w-cg .stage.side .side-hint { grid-column: 2; grid-row: 1; }
+[data-embed] .w-cg .stage.side .card { position: sticky; top: 12px; left: auto; width: auto; max-width: none; max-height: calc(100vh - 24px); overflow-y: auto; box-shadow: none; }
+[data-embed] .w-cg .side-hint { margin: 0; padding: 10px 14px; border: 1px dashed var(--border-color); border-radius: 8px; color: var(--muted-color); font-size: 14px; }
+[data-embed] .w-cg .stage:not(.side) .side-hint, [data-embed] .w-cg .card:not([hidden]) + .side-hint { display: none; }
+[data-embed] .w-cg .card.sheet { position: fixed; left: 8px; right: 8px; bottom: 8px; width: auto; max-width: none; max-height: 46vh; overflow-y: auto; }
+[data-embed] .w-cg .card.sheet.away { display: none; }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const box = root.querySelector('.w-cg');
+  const svgEl = box.querySelector('svg.graph');
+  const stage = box.querySelector('.stage');
+  const card = box.querySelector('.card');
+  const status = box.querySelector('.status');
+  const search = box.querySelector('.search');
+  const onlyCited = box.querySelector('.only-cited');
+  const chains = box.querySelector('.chains');
+  const uid = 'w-cg-' + Math.random().toString(36).slice(2, 8);
+
+  const ctx = document.createElement('canvas').getContext('2d');
+  const family = () => getComputedStyle(svgEl).fontFamily || 'sans-serif';
+  const textW = (s, size, weight = 400) => { ctx.font = `${weight} ${size}px ${family()}`; return ctx.measureText(s).width; };
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const rich = s => esc(s).replace(/_\{(.+?)\}/g, '<sub>$1</sub>').replace(/\^\{(.+?)\}/g, '<sup>$1</sup>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+  const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  // Node area grows linearly with the number of corpus papers citing it: π(16 + 32/3 · in) px².
+  const radius = d => Math.sqrt(16 + 32 / 3 * d);
+  const maxR = radius(12);
+
+  let data = null, byKey, outs, ins, groupLabel, linkBase = '';
+  const shown = new Set();
+  let hover = null, pinned = null, hideTimer = null, query = '', lastW = 0, H = 0, mode = 'wide', shownText = '';
+  // Beside-the-graph card column: its width, gap and the stage width from which it is used.
+  const SIDE_W = 340, SIDE_GAP = 16, SIDE_FROM = 940;
+  let side = false, lastStageW = 0;
+  let pos = new Map();
+
+  const href = slug => document.getElementById(slug) ? `#${slug}` : `${linkBase}attribution/#${slug}`;
+  const visibleNodes = () => data.nodes.filter(n => shown.has(n.group) && (!onlyCited.checked || n.cited.length));
+
+  // A quadratic curve from the citing paper to the cited one, cut where it meets the cited circle.
+  function curve(s, t, control) {
+    const B = u => [(1 - u) ** 2 * s.x + 2 * (1 - u) * u * control[0] + u * u * t.x, (1 - u) ** 2 * s.y + 2 * (1 - u) * u * control[1] + u * u * t.y];
+    let lo = 0.5, hi = 1;
+    for (let i = 0; i < 24; i++) { const m = (lo + hi) / 2, p = B(m); if (Math.hypot(p[0] - t.x, p[1] - t.y) > t.r + 1.5) lo = m; else hi = m; }
+    const u = lo, q1 = [s.x + u * (control[0] - s.x), s.y + u * (control[1] - s.y)], q2 = B(u);
+    return `M${s.x.toFixed(1)},${s.y.toFixed(1)}Q${q1[0].toFixed(1)},${q1[1].toFixed(1)} ${q2[0].toFixed(1)},${q2[1].toFixed(1)}`;
+  }
+
+  function drawKey(svg, W, y0) {
+    const g = svg.append('g').attr('class', 'key'), fs = 13, items = [];
+    items.push({ w: 14 + textW('cited on this page', fs), draw: (x, y) => { g.append('circle').attr('class', 'filled').attr('cx', x + 6).attr('cy', y).attr('r', 6); g.append('text').attr('class', 'muted').attr('x', x + 16).attr('y', y + 4.5).style('font-size', fs + 'px').text('cited on this page'); } });
+    items.push({ w: 14 + textW('read, not cited', fs), draw: (x, y) => { g.append('circle').attr('class', 'outline').attr('cx', x + 6).attr('cy', y).attr('r', 6); g.append('text').attr('class', 'muted').attr('x', x + 16).attr('y', y + 4.5).style('font-size', fs + 'px').text('read, not cited'); } });
+    const sizes = [1, 5, 12], sizeText = 'area: cited by 1, 5, 12 papers of the reading set';
+    const sw = d3.sum(sizes, d => 2 * radius(d) + 3);
+    items.push({ w: sw + 6 + textW(sizeText, fs), draw: (x, y) => { let cx = x; for (const d of sizes) { const r = radius(d); g.append('circle').attr('class', 'outline').attr('cx', cx + r).attr('cy', y).attr('r', r); cx += 2 * r + 3; } g.append('text').attr('class', 'muted').attr('x', x + sw + 6).attr('y', y + 4.5).style('font-size', fs + 'px').text(sizeText); } });
+    items.push({ w: 34 + textW('cites (older papers to the left)', fs), draw: (x, y) => { g.append('path').attr('d', `M${x + 26},${y + 2}Q${x + 13},${y - 8} ${x + 2},${y + 2}`).attr('marker-end', `url(#${uid}-key)`); g.append('text').attr('class', 'muted').attr('x', x + 34).attr('y', y + 4.5).style('font-size', fs + 'px').text(mode === 'wide' ? 'cites (older papers to the left)' : 'cites (older papers above)'); } });
+    let x = 0, y = y0 + 14;
+    for (const it of items) {
+      if (x > 0 && x + it.w > W) { x = 0; y += 26; }
+      it.draw(x, y); x += it.w + 22;
+    }
+    return y - y0 + 22;
+  }
+
+  function layoutWide(svg, nodes, W) {
+    const ml = 8, iw = W - 2 * ml;
+    // Piecewise time axis: one year after 2000 is three times as wide as one in 1980-2000, nine times as wide as one before 1980.
+    const k = iw / (32 / 9 + 20 / 3 + 27);
+    const x = d3.scaleLinear().domain([1948, 1980, 2000, 2027]).range([ml, ml + 32 * k / 9, ml + 32 * k / 9 + 20 * k / 3, ml + iw]);
+    const fs = 12.5, rowH = 26, head = 24, pad = 8, gap = 10;
+    let y = drawKey(svg, W, 0) + 6;
+    const plotTop = y, lanes = [];
+    for (const g of data.groups) {
+      if (!shown.has(g.key)) continue;
+      const items = nodes.filter(n => n.group === g.key);
+      if (!items.length) continue;
+      const tracks = [];
+      for (const n of items) {
+        const r = radius(n.in), cx = x(n.year), lw = textW(n.label, fs, n.cited.length ? 600 : 400);
+        const side = cx + r + 4 + lw <= W - 2 ? 'right' : 'left';
+        const a = side === 'right' ? cx - r : cx - r - 4 - lw, b = side === 'right' ? cx + r + 4 + lw : cx + r;
+        let t = tracks.findIndex(tr => tr.every(([p, q]) => b + gap <= p || a >= q + gap));
+        if (t < 0) { t = tracks.length; tracks.push([]); }
+        tracks[t].push([a, b]);
+        pos.set(n.key, { x: cx, r, side, track: t });
+      }
+      const h = head + tracks.length * rowH + pad;
+      for (const n of items) { const p = pos.get(n.key); p.y = y + head + p.track * rowH + rowH / 2; }
+      lanes.push({ g, top: y, h, count: items.length });
+      y += h + 4;
+    }
+    const plotBottom = y - 4;
+    const lg = svg.append('g').attr('class', 'lanes');
+    for (const l of lanes) lg.append('g').attr('class', `lane ${l.g.key}`).append('rect').attr('x', 0).attr('y', l.top).attr('width', W).attr('height', l.h).attr('rx', 6);
+    // Ticks: the scale breaks first, then the others where their labels fit.
+    const fsA = 12, kept = [];
+    for (const t of [1950, 1980, 2000, 2025, 1960, 1970, 1990, 2010, 2020, 2005, 2015]) {
+      const w = textW(String(t), fsA) + 10;
+      if (kept.every(o => Math.abs(x(o) - x(t)) >= w)) kept.push(t);
+    }
+    const grid = svg.append('g').attr('class', 'grid');
+    for (const t of kept) grid.append('line').attr('x1', x(t)).attr('x2', x(t)).attr('y1', plotTop).attr('y2', plotBottom);
+    for (const t of [1980, 2000]) grid.append('line').attr('class', 'break').attr('x1', x(t)).attr('x2', x(t)).attr('y1', plotTop).attr('y2', plotBottom + 6);
+    for (const l of lanes) {
+      const text = svg.append('g').attr('class', `lane ${l.g.key}`).append('text').attr('x', ml + 2).attr('y', l.top + 17).style('font-size', '13.5px').style('font-weight', 600)
+        .style('paint-order', 'stroke').style('stroke', 'var(--page-bg)').style('stroke-width', '3px').style('stroke-linejoin', 'round');
+      text.append('tspan').text(l.g.label);
+      text.append('tspan').attr('class', 'n').text(` · ${l.count} ${l.count === 1 ? 'paper' : 'papers'}`);
+    }
+    const ax = svg.append('g').attr('class', 'axis');
+    const ay = plotBottom + 6;
+    ax.append('line').attr('x1', ml).attr('x2', ml + iw).attr('y1', ay).attr('y2', ay);
+    for (const t of kept) {
+      ax.append('line').attr('x1', x(t)).attr('x2', x(t)).attr('y1', ay).attr('y2', ay + 5);
+      ax.append('text').attr('class', 'muted').attr('x', x(t)).attr('y', ay + 19).attr('text-anchor', 'middle').style('font-size', fsA + 'px').text(t);
+    }
+    const note = 'Year of publication, on three scales: a year after 2000 is drawn three times as wide as a year in 1980–2000 and nine times as wide as a year before 1980.';
+    const noteW = textW(note, fsA);
+    if (noteW <= iw) ax.append('text').attr('class', 'muted').attr('x', ml).attr('y', ay + 38).style('font-size', fsA + 'px').text(note);
+    else {
+      const cut = note.indexOf(': ') + 1;
+      ax.append('text').attr('class', 'muted').attr('x', ml).attr('y', ay + 38).style('font-size', fsA + 'px').text(note.slice(0, cut));
+      ax.append('text').attr('class', 'muted').attr('x', ml).attr('y', ay + 54).style('font-size', fsA + 'px').text(note.slice(cut + 1));
+    }
+    return ay + (noteW <= iw ? 46 : 62);
+  }
+
+  function layoutNarrow(svg, nodes, W) {
+    // Time runs down the page: one row per paper, oldest first; arcs on the left join citing and cited rows.
+    const rowH = 26, A = Math.min(130, Math.round(W * 0.34)), cx = A + maxR - 4;
+    let y = drawKey(svg, W, 0) + 8;
+    const rows = [...nodes].sort((a, b) => a.year - b.year || data.groups.findIndex(g => g.key === a.group) - data.groups.findIndex(g => g.key === b.group) || a.label.localeCompare(b.label));
+    const top = y, dg = svg.append('g').attr('class', 'decade');
+    let decade = null;
+    rows.forEach((n, i) => {
+      const cy = top + i * rowH + rowH / 2, d = Math.floor(n.year / 10) * 10;
+      if (d !== decade) {
+        decade = d;
+        dg.append('line').attr('x1', 0).attr('x2', W).attr('y1', cy - rowH / 2).attr('y2', cy - rowH / 2);
+        dg.append('text').attr('class', 'muted').attr('x', W).attr('y', cy - rowH / 2 + 13).attr('text-anchor', 'end').style('font-size', '12px').text(`${d}s`);
+      }
+      pos.set(n.key, { x: cx, y: cy, r: radius(n.in), side: 'right', A });
+    });
+    return top + rows.length * rowH + 6;
+  }
+
+  function render() {
+    if (!data) return;
+    const stageW = Math.round(stage.clientWidth || 600);
+    lastStageW = stageW;
+    side = stageW >= SIDE_FROM;
+    stage.classList.toggle('side', side);
+    stage.style.setProperty('--side-w', `${SIDE_W}px`);
+    stage.style.setProperty('--side-gap', `${SIDE_GAP}px`);
+    const W = side ? stageW - SIDE_W - SIDE_GAP : stageW;
+    lastW = W;
+    mode = W >= 600 ? 'wide' : 'narrow';
+    box.classList.toggle('narrow', mode === 'narrow');
+    const svg = d3.select(svgEl); svg.selectAll('*').remove();
+    pos = new Map();
+    const defs = svg.append('defs');
+    for (const id of ['hl', 'key'])
+      defs.append('marker').attr('id', `${uid}-${id}`).attr('viewBox', '0 0 10 10').attr('refX', 9).attr('refY', 5).attr('markerWidth', 7).attr('markerHeight', 7)
+        .attr('markerUnits', 'userSpaceOnUse').attr('orient', 'auto').append('path').attr('d', 'M0,0 L10,5 L0,10 L2.5,5 z');
+    const nodes = visibleNodes(), vis = new Set(nodes.map(n => n.key));
+    const edges = data.edges.filter(e => vis.has(e.source) && vis.has(e.target));
+    if (pinned && !vis.has(pinned)) pinned = null;
+    if (hover && !vis.has(hover)) hover = null;
+    H = nodes.length ? (mode === 'wide' ? layoutWide(svg, nodes, W) : layoutNarrow(svg, nodes, W)) : 40;
+    if (!nodes.length) svg.append('text').attr('class', 'muted').attr('x', 0).attr('y', 24).text('No paper matches the filters.');
+
+    const maxSpan = d3.max([...pos.values()], p => p.y) - d3.min([...pos.values()], p => p.y) || 1;
+    const eg = svg.append('g').attr('class', 'edges');
+    for (const e of edges) {
+      const s = pos.get(e.source), t = pos.get(e.target);
+      let control;
+      if (mode === 'wide') {
+        const dx = t.x - s.x, dy = t.y - s.y, L = Math.hypot(dx, dy) || 1, bulge = Math.min(70, 6 + 0.18 * L);
+        control = [(s.x + t.x) / 2 - dy / L * bulge, (s.y + t.y) / 2 + dx / L * bulge];
+      } else {
+        const ext = Math.min(s.A - 6, 8 + (s.A - 14) * Math.sqrt(Math.abs(t.y - s.y) / maxSpan));
+        control = [s.x - 2 * ext, (s.y + t.y) / 2];
+      }
+      eg.append('path').attr('class', 'edge').attr('data-source', e.source).attr('data-target', e.target).attr('d', curve(s, t, control));
+    }
+    const ng = svg.append('g').attr('class', 'nodes');
+    for (const n of nodes) {
+      const p = pos.get(n.key);
+      const g = ng.append('g').attr('class', `node ${n.group}${n.cited.length ? ' cited' : ''}`).attr('data-key', n.key)
+        .attr('transform', `translate(${p.x.toFixed(1)},${p.y.toFixed(1)})`).attr('tabindex', 0).attr('role', 'button')
+        .attr('aria-label', `${n.label}, ${n.title}. ${groupLabel[n.group]}. Cited by ${n.in} and citing ${n.out} papers of the reading set. ${n.cited.length ? 'Cited on this page.' : 'Not cited on this page.'}`);
+      g.append('circle').attr('class', 'hit').attr('r', Math.max(p.r, 9));
+      g.append('circle').attr('class', 'ring').attr('r', p.r + 3);
+      g.append('circle').attr('class', 'dot').attr('r', p.r);
+      const lx = mode === 'narrow' ? maxR + 4 : p.side === 'right' ? p.r + 4 : -(p.r + 4);
+      g.append('text').attr('x', lx).attr('y', 4.3).attr('text-anchor', p.side === 'right' ? 'start' : 'end').text(n.label);
+      g.on('mouseenter', () => preview(n.key)).on('mouseleave', leave)
+        .on('focus', () => preview(n.key)).on('blur', leave)
+        .on('click', ev => { ev.stopPropagation(); pin(pinned === n.key ? null : n.key); })
+        .on('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pin(pinned === n.key ? null : n.key); } });
+    }
+    svg.attr('viewBox', `0 0 ${W} ${Math.ceil(H)}`).attr('width', W).attr('height', Math.ceil(H));
+    shownText = nodes.length === data.nodes.length
+      ? `All ${data.nodes.length} papers and ${data.edges.length} citations between them are shown.`
+      : `${nodes.length} of ${data.nodes.length} papers and ${edges.length} of ${data.edges.length} citations are shown.`;
+    setStatus();
+    update();
+  }
+
+  function setStatus() {
+    const q = query.trim(), m = q && matches().length;
+    status.textContent = shownText + (q ? ` ${m === 0 ? 'No paper matches' : m === 1 ? '1 paper matches' : `${m} papers match`} “${q}”.` : '');
+  }
+
+  const matches = () => {
+    const q = fold(query.trim());
+    return q ? visibleNodes().filter(n => fold(`${n.label} ${n.title} ${n.authors.join(' ')}`).includes(q)) : [];
+  };
+
+  // The papers a paper cites (refs) and the papers citing it (citers); with chains, everything reachable.
+  function neighbourhood(k) {
+    const vis = new Set(pos.keys()), reach = (adj, deep) => {
+      const seen = new Set(), stack = [k];
+      while (stack.length) for (const m of adj.get(stack.pop()) || []) if (vis.has(m) && m !== k && !seen.has(m)) { seen.add(m); if (deep) stack.push(m); }
+      return seen;
+    };
+    return { refs: reach(outs, chains.checked), citers: reach(ins, chains.checked) };
+  }
+
+  function paint() {
+    const k = hover || pinned, svg = d3.select(svgEl);
+    svg.classed('active', !!k);
+    const nb = k ? neighbourhood(k) : { refs: new Set(), citers: new Set() };
+    // One hop: the edges touching k. Chains: also the edges inside each closure.
+    const refSide = new Set(chains.checked ? [k, ...nb.refs] : [k]), citerSide = new Set(chains.checked ? [k, ...nb.citers] : [k]);
+    svg.selectAll('.node').classed('focus', function () { return this.dataset.key === k; })
+      .classed('ref', function () { return nb.refs.has(this.dataset.key); })
+      .classed('citer', function () { return nb.citers.has(this.dataset.key); });
+    svg.selectAll('.edge').each(function () {
+      const s = this.dataset.source, t = this.dataset.target;
+      const ref = !!k && refSide.has(s) && nb.refs.has(t), citer = !!k && nb.citers.has(s) && citerSide.has(t);
+      d3.select(this).classed('ref', ref).classed('citer', citer).attr('marker-end', ref || citer ? `url(#${uid}-hl)` : null);
+      if (ref || citer) this.parentNode.appendChild(this);
+    });
+    const m = new Set(matches().map(n => n.key));
+    svg.classed('searching', m.size > 0 || !!query.trim());
+    svg.selectAll('.node').classed('match', function () { return m.has(this.dataset.key); }).classed('nomatch', function () { return !!query.trim() && !m.has(this.dataset.key); });
+  }
+
+  function cardHTML(n) {
+    const list = (keys, word) => {
+      if (!keys.length) return `<p><b>${word} no paper</b> of the reading set.</p>`;
+      const sorted = keys.map(k => byKey.get(k)).sort((a, b) => a.year - b.year || a.label.localeCompare(b.label));
+      return `<p><b>${word} ${keys.length}:</b> ${sorted.map(m => pos.has(m.key) ? `<button type="button" class="go" data-go="${m.key}">${esc(m.label)}</button>` : esc(m.label)).join(' ')}</p>`;
+    };
+    const as = a => a.map(x => x === 'note' ? 'margin note' : 'citation').join(' and ');
+    const article = n.cited.length
+      ? `<p><b>On this page:</b> ${n.cited.map(c => { const s = data.sections[c.section]; return `<a href="${href(s.slug)}">${c.section === '0' ? '' : `§${c.section} `}${esc(s.title)}</a> (${as(c.as)})`; }).join('; ')}.</p>`
+      : '<p><b>Read, not cited on this page.</b></p>';
+    return `${pinned === n.key ? '<button type="button" class="close" aria-label="Close the card">×</button>' : ''}`
+      + `<p class="meta">${esc(n.label)} · ${esc(n.type)} · ${esc(groupLabel[n.group])}</p>`
+      + `<p class="title">${esc(n.title)}</p><p class="authors">${esc(n.authors.join(', '))} (${n.year})</p>`
+      + `<p>${rich(n.summary)}</p>${article}${list(ins.get(n.key) || [], 'Cited by')}${list(outs.get(n.key) || [], 'Cites')}`;
+  }
+
+  // Extent of a paper's dot and label, in SVG coordinates.
+  function extent(m) {
+    const q = pos.get(m.key), lw = textW(m.label, 12.5, m.cited.length ? 600 : 400) + 4;
+    return q.side === 'right' ? [q.x - q.r, q.y - 9, q.x + q.r + lw, q.y + 9] : [q.x - q.r - lw, q.y - 9, q.x + q.r, q.y + 9];
+  }
+
+  function placeCard(n) {
+    const p = pos.get(n.key), W = lastW;
+    card.classList.toggle('sheet', mode === 'narrow');
+    if (mode === 'narrow' || side) { card.style.width = card.style.left = card.style.top = ''; return; }
+    // Near the paper, at the place hiding the fewest highlighted papers (dots and labels), never the paper itself.
+    const cw = Math.min(360, W);
+    card.style.width = cw + 'px';
+    const ch = card.offsetHeight, [x0, , x1] = extent(n);
+    const lit = [...svgEl.querySelectorAll('.node.ref, .node.citer')].map(el => extent(byKey.get(el.dataset.key)));
+    let best = null;
+    for (let left = 0; left <= W - cw + 1; left += 12) for (const top of [p.y - 30, p.y + 30 - ch, p.y + 24, p.y - 24 - ch]) {
+      const l = Math.min(left, W - cw), t = Math.max(0, Math.min(H - ch, top));
+      if (l < x1 + 8 && x0 - 8 < l + cw && t < p.y + 12 && p.y - 12 < t + ch) continue;
+      const hidden = lit.filter(([a, b, c, d]) => l < c && a < l + cw && t < d && b < t + ch).length;
+      const gap = Math.max(0, l - x1, x0 - (l + cw)) + Math.max(0, t - p.y, p.y - (t + ch));
+      const score = hidden * 1e4 + gap;
+      if (!best || score < best.score) best = { l, t, score };
+    }
+    if (!best) best = { l: 0, t: Math.max(0, Math.min(H - ch, p.y + 24)) };
+    card.style.left = best.l + 'px';
+    card.style.top = best.t + 'px';
+  }
+
+  function update() {
+    paint();
+    const k = hover || pinned, n = k && byKey.get(k);
+    if (!n || !pos.has(k)) { card.hidden = true; delete box.dataset.active; return; }
+    box.dataset.active = k;
+    card.innerHTML = cardHTML(n);
+    card.style.setProperty('--c', `var(--g-${n.group})`);
+    card.hidden = false;
+    placeCard(n);
+  }
+
+  function preview(k) { clearTimeout(hideTimer); if (hover !== k) { hover = k; update(); } }
+  function leave() { clearTimeout(hideTimer); hideTimer = setTimeout(() => { hover = null; update(); }, 160); }
+  function pin(k) { clearTimeout(hideTimer); pinned = k; hover = null; update(); }
+
+  card.addEventListener('mouseenter', () => clearTimeout(hideTimer));
+  card.addEventListener('mouseleave', () => { if (hover) leave(); });
+  card.addEventListener('click', ev => {
+    ev.stopPropagation();
+    const go = ev.target.closest('button.go');
+    if (go) { pin(go.dataset.go); const el = svgEl.querySelector(`.node[data-key="${go.dataset.go}"]`); if (el) el.focus({ preventScroll: mode === 'wide' }); }
+    else if (ev.target.closest('button.close')) pin(null);
+  });
+  svgEl.addEventListener('click', () => { if (pinned) pin(null); });
+  box.addEventListener('keydown', ev => { if (ev.key === 'Escape' && (pinned || hover)) { hover = null; pin(null); } });
+  search.addEventListener('input', () => { query = search.value; setStatus(); paint(); });
+  search.addEventListener('keydown', ev => { if (ev.key === 'Enter') { const m = matches(); if (m.length) pin(m[0].key); } });
+  onlyCited.addEventListener('change', render);
+  chains.addEventListener('change', update);
+
+  linkBase = root.dataset.url.replace(/data\/[^/]*$/, '');
+  d3.json(root.dataset.url).then(d => {
+    data = d;
+    byKey = new Map(d.nodes.map(n => [n.key, n]));
+    outs = d3.group(d.edges, e => e.source); ins = d3.group(d.edges, e => e.target);
+    outs = new Map([...outs].map(([k, v]) => [k, v.map(e => e.target)]));
+    ins = new Map([...ins].map(([k, v]) => [k, v.map(e => e.source)]));
+    groupLabel = Object.fromEntries(d.groups.map(g => [g.key, g.label]));
+    const gbox = box.querySelector('.groups');
+    for (const g of d.groups) {
+      shown.add(g.key);
+      const label = document.createElement('label');
+      label.className = 'chk';
+      label.innerHTML = `<input type="checkbox" checked data-group="${g.key}" /><span class="sw" style="--c: var(--g-${g.key})"></span>${esc(g.label)}`;
+      label.querySelector('input').addEventListener('change', ev => { if (ev.target.checked) shown.add(g.key); else shown.delete(g.key); render(); });
+      gbox.appendChild(label);
+    }
+    new ResizeObserver(() => { if (Math.round(stage.clientWidth) !== lastStageW) render(); }).observe(stage);
+    new IntersectionObserver(([e]) => card.classList.toggle('away', !e.isIntersecting)).observe(stage);
+    render(); box.dataset.ready = 'true';
+  }).catch(error => { status.textContent = `Could not load the figure: ${error.message}`; });
+})();
+</script>

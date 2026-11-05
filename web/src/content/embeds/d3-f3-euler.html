@@ -1,0 +1,85 @@
+<div class="f3-euler">
+<p class="note">Synthetic linear positions, in units of capital. Annual return volatilities and correlation define the covariance matrix. Positions may be short.</p>
+<div class="controls"></div>
+<h4>Position sizes · capital units</h4><svg class="positions" role="img" aria-label="Signed position sizes in capital units"></svg>
+<h4>Risk contributions · capital units of annual volatility</h4><svg class="risk" role="img" aria-label="Risk contributions to portfolio volatility"></svg>
+<table><thead><tr><th>Position</th><th>Marginal risk<br/>per unit</th><th>Risk share</th></tr></thead><tbody></tbody></table>
+<p class="status" role="status" aria-live="polite"></p>
+<p class="note">Risk contribution = position × marginal risk. Risk contributions sum to portfolio volatility; a negative risk contribution hedges the portfolio. Removing a whole position is a different calculation.</p>
+</div>
+<style>
+.f3-euler { padding:16px; border:1px solid var(--border-color); border-radius:10px; background:var(--surface-bg); color:var(--text-color); font:14px/1.5 var(--default-font-family, sans-serif); }
+.f3-euler .controls { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr)); gap:10px 24px; }
+.f3-euler label { display:block; } .f3-euler input[type=range] { display:block; width:100%; accent-color:var(--info-color); }
+.f3-euler select,.f3-euler button { max-width:100%; color:var(--text-color); background:var(--page-bg); border:1px solid var(--border-color); border-radius:4px; padding:6px; font:inherit; }
+.f3-euler output { font-weight:600; font-variant-numeric:tabular-nums; } .f3-euler svg { display:block; width:100%; height:auto; overflow:visible; }
+.f3-euler svg text { fill:var(--text-color); font:14px sans-serif; } .f3-euler h4 { margin:18px 0 6px; font-size:15px; }
+.f3-euler .status { font-variant-numeric:tabular-nums; } .f3-euler .note { color:var(--muted-color); }
+.f3-euler table { width:100%; font:inherit; border-collapse:collapse; } .f3-euler th,.f3-euler td { text-align:right; padding:5px 2px; border-bottom:1px solid var(--border-color); } .f3-euler th:first-child,.f3-euler td:first-child { text-align:left; }
+.f3-euler .error { color:var(--danger-color); }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+
+  const box = root.querySelector('.f3-euler');
+  const controls = box.querySelector('.controls');
+  const status = box.querySelector('.status');
+  const state = {};
+  function slider(key, label, min, max, step, value, unit) {
+    state[key] = value;
+    const el = document.createElement('label');
+    const text = document.createElement('span'); text.textContent = label + ' ';
+    const out = document.createElement('output');
+    const input = document.createElement('input');
+    input.type='range'; input.min=min; input.max=max; input.step=step; input.value=value;
+    input.dataset.key=key; input.setAttribute('aria-label', label);
+    const update = () => { state[key]=Number(input.value); out.value=Number(input.value).toFixed(step < 1 ? 2 : 0) + unit; };
+    update(); input.addEventListener('input', () => { update(); box.dispatchEvent(new Event('figure-input')); });
+    el.append(text,out,input); controls.append(el);
+  }
+  function bars(selector, rows, unit, domain) {
+    const svg=d3.select(box.querySelector(selector));
+    const limit=domain || Math.max(1,...rows.map(r=>Math.abs(r.value)))*1.15;
+    const width=box.querySelector(selector).clientWidth;
+    const x=d3.scaleLinear().domain([-limit,limit]).range([105,width-100]);
+    svg.attr('viewBox',`0 0 ${width} ${rows.length*38+54}`);
+    svg.selectAll('*').remove();
+    svg.append('line').attr('x1',x(0)).attr('x2',x(0)).attr('y1',0).attr('y2',rows.length*38).attr('stroke','var(--muted-color)');
+    const g=svg.selectAll('g').data(rows).join('g').attr('transform',(_,i)=>`translate(0,${i*38})`);
+    g.append('text').attr('x',0).attr('y',22).text(d=>d.label);
+    g.append('rect').attr('x',d=>Math.min(x(0),x(d.value))).attr('y',5).attr('width',d=>Math.abs(x(d.value)-x(0))).attr('height',25).attr('fill',d=>d.color || 'var(--info-color)');
+    g.append('text').attr('x',width-4).attr('y',22).attr('text-anchor','end').text(d=>`${d.value.toFixed(2)}${unit}`);
+    svg.append('g').attr('transform',`translate(0,${rows.length*38})`).call(d3.axisBottom(x).ticks(3));
+    svg.append('text').attr('x',width/2).attr('y',rows.length*38+47).attr('text-anchor','middle').text(unit || 'Capital units');
+  }
+  d3.json(root.dataset.url).then(data => {
+
+    for(let i=0;i<2;i++) {
+      slider('x'+i,`Position ${i?'B':'A'}`,-100,150,1,data.sizes[i],' units');
+      slider('s'+i,`Annual volatility ${i?'B':'A'}`,1,50,1,data.volPercent[i],'%');
+    }
+    slider('rho','Return correlation',-1,1,.01,data.correlation,'');
+    function draw() {
+      const x=[state.x0,state.x1], s=[state.s0/100,state.s1/100], rho=state.rho;
+      const sx=[s[0]**2*x[0]+rho*s[0]*s[1]*x[1],rho*s[0]*s[1]*x[0]+s[1]**2*x[1]];
+      const variance=x[0]*sx[0]+x[1]*sx[1], sigma=Math.sqrt(Math.max(0,variance));
+      const defined=variance>1e-12*((s[0]*x[0])**2+(s[1]*x[1])**2);
+      const marginal=defined?sx.map(v=>v/sigma):[null,null];
+      const contributions=defined?x.map((v,i)=>v*marginal[i]):[0,0];
+      const colors=['var(--info-color)','var(--primary-color)'];
+      bars('.positions',x.map((v,i)=>({label:`Position ${i?'B':'A'}`,value:v,color:colors[i]})),'',175);
+      bars('.risk',contributions.map((v,i)=>({label:`Risk ${i?'B':'A'}`,value:v,color:colors[i]})),'',85);
+      const body=box.querySelector('tbody'); body.replaceChildren();
+      x.forEach((_,i)=>{ const row=document.createElement('tr'); for(const text of [i?'B':'A',defined?marginal[i].toFixed(4):'undefined',defined?(100*contributions[i]/sigma).toFixed(1)+'%':'undefined']) { const cell=document.createElement('td'); cell.textContent=text; row.append(cell); } body.append(row); });
+      const residual=d3.sum(contributions)-sigma;
+      status.textContent=defined?`Portfolio volatility ${sigma.toFixed(4)} capital units (annual). Risk contributions sum to ${d3.sum(contributions).toFixed(4)}. Euler residual ${residual.toExponential(1)} units. Largest absolute position: ${Math.abs(x[0])>=Math.abs(x[1])?'A':'B'}; largest risk contribution: ${contributions[0]>=contributions[1]?'A':'B'}.`:'Zero portfolio volatility: the marginal derivative and risk shares are undefined. Risk contribution bars are shown at zero.';
+      box.dataset.result=JSON.stringify({x,s,rho,sigma,marginal,contributions,residual,defined});
+    }
+
+    box.addEventListener('figure-input',draw);
+    new ResizeObserver(draw).observe(box);
+    draw(); box.dataset.ready='true';
+  }).catch(error => { status.textContent=`Could not load figure: ${error.message}`; status.classList.add('error'); });
+})();
+</script>

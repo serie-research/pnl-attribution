@@ -1,0 +1,29 @@
+---
+// Presentation view of a session: the same MDX content as ./index.astro, shown one
+// screen per h2 opening and h3 subsection (see ../../layouts/Present.astro). Each
+// screen's message comes from ../../content/present.json, keyed by heading text and
+// mapped to heading ids here: the build fails if a heading and the messages disagree.
+import Present from '../../layouts/Present.astro';
+import present from '../../content/present.json';
+import { messagesById, presentData } from '../../scripts/present-screens.js';
+export function getStaticPaths() {
+  const pages = import.meta.glob('../../content/sessions/*.mdx', { eager: true });
+  return Object.entries(pages).map(([path, page]) => ({
+    params: { session: path.split('/').pop().replace('.mdx', '') },
+    props: { page },
+  }));
+}
+const { page } = Astro.props;
+const { session } = Astro.params;
+const Content = page.Content;
+// The derived file must match the talk sources where they exist (not in the public export).
+const talkMessages = Object.values(import.meta.glob('../../../../talk/present-messages.json', { eager: true, import: 'default' }))[0];
+const talkDraft = Object.values(import.meta.glob('../../../../talk/draft.md', { eager: true, query: '?raw', import: 'default' }))[0];
+if (talkMessages && talkDraft) {
+  const fresh = presentData(talkMessages, talkDraft);
+  if (JSON.stringify(fresh) !== JSON.stringify(present)) throw new Error('src/content/present.json is stale: run node tools/present-data.mjs');
+}
+const headings = page.getHeadings().filter(h => h.depth === 2 || h.depth === 3).map(h => ({ id: h.slug, text: h.text }));
+const messages = messagesById(headings, present.messages);
+---
+<Present session={session} title={page.frontmatter.title} subtitle={page.frontmatter.subtitle} messages={messages} talkOrder={present.talkOrder}><Content /></Present>

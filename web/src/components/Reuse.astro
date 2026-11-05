@@ -1,0 +1,22 @@
+---
+// Reuse and Citation sections, from the single source content/citation.json.
+import citation from '../content/citation.json';
+const { part } = Astro.props;
+const { content, code, excluded, figures, adapted } = citation.reuse;
+const [beforeNotice, afterNotice] = excluded.split('NOTICE.md');
+const notice = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}code/NOTICE.md`;
+---
+{part === 'reuse' && <>
+  <p>The <a href={citation.repository}>source repository</a> holds everything on this page.
+  {' '}{content.scope[0].toUpperCase() + content.scope.slice(1)} are under <a href={content.url}>{content.licence}</a>;
+  {' '}{code.scope} is under <a href={code.url}>{code.licence}</a>.
+  {' '}{figures}
+  {' '}{beforeNotice}<a href={notice}>NOTICE.md</a>{afterNotice}</p>
+  <p>The page adapts {adapted.map((a, i) => <>{i > 0 && ' and '}{a.author}'s <a href={a.url}>{a.work}</a></>)}, both under CC BY 4.0.</p>
+</>}
+{part === 'citation' && <>
+  <p>To cite this work:</p>
+  <pre class="citation-text">{citation.text}</pre>
+  <p>BibTeX citation</p>
+  <pre class="citation-bibtex">{citation.bibtex}</pre>
+</>}

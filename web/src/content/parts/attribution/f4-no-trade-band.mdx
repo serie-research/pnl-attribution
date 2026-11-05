@@ -1,0 +1,14 @@
+import HtmlEmbed from '../../../components/HtmlEmbed.astro';
+import WhatToNotice from '../../../components/post/WhatToNotice.astro';
+
+<HtmlEmbed src="d3-f4-no-trade-band.html" data="f4-no-trade-band.json" title="Spread costs create a no-trade band" desc="Move the two forecasts. The combined forecast must overcome both the spread and the risk of the existing position before any signal trades." />
+
+<WhatToNotice>
+
+Inside the band, both attributed trades are zero, even when one signal alone
+would trade. Outside it, Durin turns the spread into an extra cost that both
+signals share. Their attributed trades add up to the actual trade, even if one
+goes in the opposite direction. The figure uses Durin's static model
+[@durinSignalwisePerformanceAttribution2014, p. 17, Eqs. 49–54].
+
+</WhatToNotice>

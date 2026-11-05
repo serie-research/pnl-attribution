@@ -1,0 +1,27 @@
+---
+// Trusted repository markup, inert until this figure approaches the viewport.
+import runtime from '../scripts/lazy-embeds.js?raw';
+interface Props { html: string; data: string; height?: number; narrowHeight?: number; sizes?: number[][]; }
+const { html, data, height = 600, narrowHeight = height, sizes = [[390, narrowHeight], [1280, height]] } = Astro.props;
+// Styles keep their page-wide cascade order; only markup and scripts wait.
+const styles = [...html.matchAll(/<style\b[^>]*>[\s\S]*?<\/style>/gi)].map(match => match[0]).join('\n');
+const markup = html.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+const installRuntime = !Astro.locals.articleEmbedRuntimeInstalled;
+Astro.locals.articleEmbedRuntimeInstalled = true;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+<Fragment set:html={styles} />
+{installRuntime && <script is:inline src={`${base}vendor/d3.min.js`}></script>}
+{installRuntime && <script is:inline set:html={runtime}></script>}
+<div data-embed data-lazy-embed data-url={`${base}data/${data}`} data-embed-sizes={JSON.stringify(sizes)}
+  style={`--embed-height:${height}px;--embed-narrow-height:${narrowHeight}px`}>
+  <template><Fragment set:html={markup} /></template>
+</div>
+<script is:inline>window.observeArticleEmbed(document.currentScript.previousElementSibling);</script>
+<style>
+  [data-lazy-embed]:not([data-activated]) { height: var(--embed-placeholder-height, var(--embed-height)); overflow: hidden; }
+  [data-lazy-embed]:not([data-activated]) > * { visibility: hidden; }
+  @media (max-width: 600px) {
+    [data-lazy-embed]:not([data-activated]) { height: var(--embed-placeholder-height, var(--embed-narrow-height)); }
+  }
+</style>

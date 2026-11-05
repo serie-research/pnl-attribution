@@ -1,0 +1,84 @@
+<div class="f13-paths">
+  <p><strong>Cumulative net P&amp;L by signal</strong></p>
+  <div class="controls"></div>
+  <p class="parameters"></p>
+  <div class="legend"></div>
+  <div class="main-chart"></div>
+  <p class="status" role="status"></p>
+  <h4>Final cumulative allocation by method</h4>
+  <p>All panels use the same horizontal scale. The vertical black mark is the total portfolio.</p>
+  <div class="comparison"></div>
+  <p>Units: asset volatility and the portfolio risk target are both 1 per period. Paths show every fifth period. The path scale fits the selected method; the endpoint panels share one scale within each scenario.</p>
+</div>
+<style>
+.f13-paths {border:1px solid var(--border-color);border-radius:8px;padding:12px;}
+.f13-paths .controls {display:flex;flex-wrap:wrap;gap:12px;}
+.f13-paths label {display:flex;flex-direction:column;gap:4px;min-width:0;max-width:100%;font-size:14px;}
+.f13-paths select {display:block;max-width:100%;background:var(--surface-bg);color:var(--text-color);}
+.f13-paths p,.f13-paths .legend {font-size:14px;line-height:1.5;}
+.f13-paths .legend {display:flex;flex-wrap:wrap;gap:4px 14px;margin-bottom:8px;}
+.f13-paths .legend span {display:inline-flex;align-items:center;gap:5px;}
+.f13-paths .swatch {width:20px;border-top:2px solid;}
+.f13-paths svg {display:block;width:100%;overflow:visible;}
+.f13-paths svg text {fill:var(--text-color);font:13px sans-serif;}
+.f13-paths .comparison {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px;}
+.f13-paths h4 {font-size:16px;margin:12px 0 6px;}
+.f13-paths h5 {font-size:14px;margin:0 0 4px;}
+</style>
+<script>
+(() => {
+  const host=document.currentScript.closest('[data-embed]'), root=host.querySelector('.f13-paths');
+  const palette={'fast A':'#2676bb','slow A':'#bf5a12','fast B':'#25846b','slow B':'#9757b4','spread cost':'#bd3f50','position limit':'#777','residual':'#a77913','total book':'var(--text-color)'};
+  const color=label=>palette[label], extra=label=>['spread cost','position limit','residual'].includes(label);
+  d3.json(host.dataset.url).then(data=>{
+    function select(label, cls, items) {
+      const wrap=document.createElement('label'); wrap.textContent=label;
+      const el=document.createElement('select');el.className=cls;el.setAttribute('aria-label',label);
+      items.forEach(item=>el.add(new Option(item.label,item.id)));wrap.append(el);root.querySelector('.controls').append(wrap);return el;
+    }
+    const scenario=select('Synthetic scenario','scenario',data.scenarios);
+    const method=select('Allocation method','method',data.methods);method.value='durin';
+    root.dataset.exactSum=String(data.exact_sum_check);
+    function draw() {
+      const s=data.scenarios.find(s=>s.id===scenario.value), p=s.parameters;
+      root.dataset.scenario=s.id;root.dataset.method=method.value;
+      root.querySelector('.parameters').textContent=`Spread ${p.spread_rel} × std(G); position limit ${p.box} equal-risk units; innovation correlation ${p.corr}. ${p.n_assets} assets, ${p.n_periods} periods.`;
+      const components=s.methods[method.value], lines=[{label:'total book',values:s.total},...components];
+      const legend=root.querySelector('.legend');legend.replaceChildren();
+      lines.forEach(line=>{const span=document.createElement('span'), swatch=document.createElement('i');swatch.className='swatch';swatch.style.borderColor=color(line.label);if(extra(line.label))swatch.style.borderTopStyle='dashed';span.append(swatch,document.createTextNode(line.label));legend.append(span);});
+      const chart=root.querySelector('.main-chart');chart.replaceChildren();
+      const width=chart.clientWidth,height=310,left=55,right=12,bottom=45,top=24;
+      const all=lines.flatMap(c=>c.values);
+      const x=d3.scaleLinear().domain([0,p.n_periods]).range([left,width-right]);
+      const y=d3.scaleLinear().domain([Math.min(0,d3.min(all)),Math.max(0,d3.max(all))]).nice().range([height-bottom,top]);
+      const svg=d3.select(chart).append('svg').attr('viewBox',`0 0 ${width} ${height}`).attr('role','img').attr('aria-label',`Cumulative net P&L: ${s.label}, ${method.selectedOptions[0].text}`);
+      svg.append('text').attr('x',0).attr('y',14).text('Cumulative net P&L (simulation units)');
+      svg.append('g').attr('transform',`translate(${left},0)`).call(d3.axisLeft(y).ticks(5).tickFormat(d3.format('~s')));
+      svg.append('g').attr('transform',`translate(0,${height-bottom})`).call(d3.axisBottom(x).ticks(width<450?3:5));
+      svg.append('text').attr('x',(left+width-right)/2).attr('y',height-6).attr('text-anchor','middle').text('Period');
+      svg.append('line').attr('x1',left).attr('x2',width-right).attr('y1',y(0)).attr('y2',y(0)).attr('stroke','var(--border-color)');
+      const line=d3.line().x((v,i)=>x(s.periods[i])).y(v=>y(v));
+      svg.selectAll('.pnl-line').data(lines).join('path').attr('class','pnl-line').attr('data-label',d=>d.label).attr('d',d=>line(d.values)).attr('fill','none').attr('stroke',d=>color(d.label)).attr('stroke-width',d=>d.label==='total book'?3:1.8).attr('stroke-dasharray',d=>extra(d.label)?'6 4':null);
+      root.querySelector('.status').textContent=`Exact allocations sum to the total portfolio at every period (absolute tolerance ${data.tolerance}). Regression, iterated proxies and leave-one-out include a residual. Iterated proxies: ${s.iteration.status.replaceAll('_',' ')} after ${s.iteration.n_iter} iterations.`;
+      const comparison=root.querySelector('.comparison');comparison.replaceChildren();
+      const ends=[0,s.total.at(-1),...Object.values(s.methods).flatMap(parts=>parts.map(c=>c.values.at(-1)))];
+      const domain=[d3.min(ends),d3.max(ends)];
+      const panels=data.methods.map(m=>{
+        const panel=document.createElement('div'), title=document.createElement('h5');title.textContent=m.label;panel.append(title);comparison.append(panel);return panel;
+      });
+      data.methods.forEach((m,index)=>{
+        const panel=panels[index];
+        const values=s.methods[m.id], w=panel.clientWidth,h=values.length*25+44;
+        const scale=d3.scaleLinear().domain(domain).nice().range([100,w-16]);
+        const plot=d3.select(panel).append('svg').attr('viewBox',`0 0 ${w} ${h}`).attr('role','img').attr('aria-label',`${m.label}: final cumulative allocations`);
+        for(const [v,stroke] of [[0,'var(--border-color)'],[s.total.at(-1),'var(--text-color)']])plot.append('line').attr('x1',scale(v)).attr('x2',scale(v)).attr('y1',0).attr('y2',h-36).attr('stroke',stroke);
+        values.forEach((c,i)=>{const yy=i*25+13;plot.append('text').attr('x',0).attr('y',yy+4).text(c.label);plot.append('circle').attr('cx',scale(c.values.at(-1))).attr('cy',yy).attr('r',4).attr('fill',extra(c.label)?'none':color(c.label)).attr('stroke',color(c.label)).append('title').text(`${c.label}: ${c.values.at(-1).toFixed(3)} simulation units`);});
+        plot.append('g').attr('transform',`translate(0,${h-32})`).call(d3.axisBottom(scale).ticks(3).tickFormat(d3.format('~s')));
+        plot.append('text').attr('x',w/2).attr('y',h-2).attr('text-anchor','middle').text('Net P&L (simulation units)');
+      });
+    }
+    scenario.addEventListener('change',draw);method.addEventListener('change',draw);
+    new ResizeObserver(draw).observe(root.querySelector('.main-chart'));draw();
+  }).catch(error=>{root.querySelector('.status').textContent=`Figure unavailable: ${error.message}`;});
+})();
+</script>

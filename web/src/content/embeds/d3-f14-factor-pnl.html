@@ -1,0 +1,103 @@
+<div class="f14-factor-pnl">
+  <div class="controls"></div>
+  <button type="button" class="reseed">New history</button>
+  <p class="note">Synthetic positions in 100 assets. One P&amp;L unit equals the model's daily specific volatility. The market factor has zero expected return.</p>
+  <div class="legend"><span class="total">━ Total</span><span class="factor">┄ Factor</span><span class="specific">━ Specific</span></div>
+  <svg class="paths" role="img" aria-label="Cumulative total, factor and specific P&L"></svg>
+  <div class="panels">
+    <section><h4>Realised mean · share of total</h4><svg class="means" role="img" aria-label="Factor and specific shares of realised mean P&L"></svg></section>
+    <section><h4>Risk · share of total variance</h4><svg class="variance" role="img" aria-label="Realised variance terms and model Euler risk shares"></svg></section>
+  </div>
+  <p class="status" role="status" aria-live="polite"></p>
+  <p class="note">Mean shares can be negative or exceed 100%. They are undefined when total mean is zero. The bars use separate scales.</p>
+  <p class="note">Realised risk terms are Var(F), Var(S), and 2Cov(F,S), divided by Var(F + S). The last two bars show model Euler shares of volatility. Here the model covariance is zero, so these also equal the model variance shares.</p>
+</div>
+<style>
+.f14-factor-pnl {padding:14px;border:1px solid var(--border-color);border-radius:10px;background:var(--surface-bg);color:var(--text-color);font:14px/1.5 var(--default-font-family,sans-serif);}
+.f14-factor-pnl .controls,.f14-factor-pnl .panels {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px 20px;}
+.f14-factor-pnl label {display:block;}.f14-factor-pnl input {display:block;width:100%;accent-color:var(--info-color);}
+.f14-factor-pnl output {font-weight:600;font-variant-numeric:tabular-nums;}
+.f14-factor-pnl button {font:inherit;color:var(--text-color);background:var(--page-bg);border:1px solid var(--border-color);border-radius:4px;padding:6px 12px;margin-top:10px;cursor:pointer;}
+.f14-factor-pnl :focus-visible {outline:2px solid var(--info-color);outline-offset:3px;}
+.f14-factor-pnl svg {display:block;width:100%;height:auto;overflow:visible;}.f14-factor-pnl svg text {fill:var(--text-color);font:13px sans-serif;}
+.f14-factor-pnl h4 {font-size:14px;margin:12px 0 6px;}.f14-factor-pnl .note {color:var(--muted-color);}
+.f14-factor-pnl .legend {display:flex;flex-wrap:wrap;gap:16px;}.f14-factor-pnl .factor {color:var(--info-color);}.f14-factor-pnl .specific {color:var(--primary-color);}
+</style>
+<script>
+(() => {
+  const host=document.currentScript.closest('[data-embed]'), box=host.querySelector('.f14-factor-pnl');
+  const colors=['var(--info-color)','var(--primary-color)','var(--muted-color)'];
+  d3.json(host.dataset.url).then(data=>{
+    const state={exposure:data.exposure,ic:data.ic,days:data.days,seed:data.seed};
+    function slider(key,label,min,max,step,unit) {
+      const wrap=document.createElement('label'), out=document.createElement('output'), input=document.createElement('input');
+      input.type='range';input.min=min;input.max=max;input.step=step;input.value=state[key];input.dataset.key=key;input.setAttribute('aria-label',label);
+      const update=()=>{state[key]=+input.value;out.value=state[key]+unit;};
+      wrap.append(document.createTextNode(label+' '),out,input);box.querySelector('.controls').append(wrap);
+      update();input.addEventListener('input',()=>{update();draw();});
+    }
+    slider('exposure','Factor exposure',0,4,.1,' × specific volatility');
+    slider('ic','Signal strength',0,.05,.005,'');
+    slider('days','History length',21,1260,21,' days');
+    // Mulberry32 and Box–Muller: the same seed keeps daily shocks fixed across controls.
+    function normals(seed) {
+      let a=seed>>>0;
+      function uniform(){a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;}
+      return ()=>Math.sqrt(-2*Math.log(Math.max(Number.EPSILON,uniform())))*Math.cos(2*Math.PI*uniform());
+    }
+    function simulate() {
+      const {exposure:e,ic,days,seed}=state,N=data.assets,noise=Math.sqrt(1-ic*ic);
+      // s has zero sum and squared norm N. h has sum e and noise² ||h||² = 1.
+      const signalScale=Math.sqrt((1/(noise*noise)-e*e/N)/N);
+      const h=Array.from({length:N},(_,i)=>signalScale*(i<N/2?1:-1)+e/N);
+      const normal=normals(seed), rows=[], cumulative=[[0,0,0]];let identityError=0;
+      for(let t=0;t<days;t++) {
+        const f=normal();let F=0,S=0,total=0;
+        for(let i=0;i<N;i++) {
+          const u=ic*(i<N/2?1:-1)+noise*normal();
+          F+=h[i]*f;S+=h[i]*u;total+=h[i]*(f+u);
+        }
+        identityError=Math.max(identityError,Math.abs(total-F-S));rows.push([F,S,total]);
+        cumulative.push(cumulative.at(-1).map((v,k)=>v+rows.at(-1)[k]));
+      }
+      const mean=[0,1,2].map(k=>d3.mean(rows,r=>r[k]));
+      const cov=(j,k)=>d3.sum(rows,r=>(r[j]-mean[j])*(r[k]-mean[k]))/(days-1);
+      const variance=[cov(0,0),cov(1,1),2*cov(0,1)], totalVariance=cov(2,2);
+      const meanDefined=Math.abs(mean[2])>1e-10*Math.max(1,...mean.map(Math.abs));
+      return {state:{...state},h,mean,meanDefined,meanShares:meanDefined?mean.slice(0,2).map(v=>v/mean[2]):null,
+        variance,totalVariance,varianceShares:variance.map(v=>v/totalVariance),eulerShares:[e*e/(1+e*e),1/(1+e*e)],
+        expectedMean:[0,ic*N*signalScale],identityError,cumulative};
+    }
+    function bars(selector,labels,values) {
+      const node=box.querySelector(selector),w=node.clientWidth,svg=d3.select(node);svg.selectAll('*').remove();
+      const domain=[Math.min(0,...values.filter(Number.isFinite)),Math.max(1,...values.filter(Number.isFinite))];
+      const x=d3.scaleLinear().domain(domain).range([0,w-8]);
+      svg.attr('viewBox',`0 0 ${w} ${labels.length*49+28}`);
+      labels.forEach((label,i)=>{
+        const v=values[i],y=i*49;
+        svg.append('text').attr('x',0).attr('y',y+14).text(label);
+        svg.append('text').attr('x',w-4).attr('y',y+14).attr('text-anchor','end').text(v===null?'undefined':d3.format('.1%')(v));
+        svg.append('line').attr('x1',x(0)).attr('x2',x(0)).attr('y1',y+20).attr('y2',y+38).attr('stroke','var(--text-color)');
+        if(v!==null)svg.append('rect').attr('x',Math.min(x(0),x(v))).attr('y',y+22).attr('height',14).attr('width',Math.abs(x(v)-x(0))).attr('fill',colors[i===3?0:i===4?1:i]);
+      });
+      svg.append('g').attr('transform',`translate(0,${labels.length*49})`).call(d3.axisBottom(x).ticks(3).tickFormat(d3.format('.0%'))).call(g=>g.selectAll('.tick text').attr('text-anchor',d=>d===domain[0]?'start':d===domain[1]?'end':'middle'));
+    }
+    function draw() {
+      const r=simulate(),node=box.querySelector('.paths'),w=node.clientWidth,H=300,svg=d3.select(node);svg.selectAll('*').remove();svg.attr('viewBox',`0 0 ${w} ${H}`);
+      const x=d3.scaleLinear().domain([0,state.days]).range([48,w-12]), y=d3.scaleLinear().domain(d3.extent(r.cumulative.flat())).nice().range([H-42,28]);
+      svg.append('text').attr('x',0).attr('y',15).text('Cumulative P&L · simulation units');
+      svg.append('g').attr('transform','translate(48,0)').call(d3.axisLeft(y).ticks(5).tickFormat(d3.format('~s')));
+      svg.append('g').attr('transform',`translate(0,${H-42})`).call(d3.axisBottom(x).ticks(w<450?3:6).tickFormat(d3.format('d')));
+      svg.append('text').attr('x',w/2).attr('y',H-5).attr('text-anchor','middle').text('Day');
+      // Draw total first: at zero exposure, the specific line correctly coincides with it.
+      for(const k of [2,0,1])svg.append('path').datum(r.cumulative).attr('d',d3.line().x((v,i)=>x(i)).y(v=>y(v[k]))).attr('fill','none').attr('stroke',k===2?'var(--text-color)':colors[k]).attr('stroke-width',k===2?3:1.8).attr('stroke-dasharray',k===0?'6 4':null);
+      bars('.means',['Factor','Specific'],r.meanShares||[null,null]);
+      bars('.variance',['Realised factor','Realised specific','Realised 2 × covariance','Model Euler factor','Model Euler specific'],[...r.varianceShares,...r.eulerShares]);
+      box.querySelector('.status').textContent=`Daily mean: total ${r.mean[2].toFixed(3)}, factor ${r.mean[0].toFixed(3)}, specific ${r.mean[1].toFixed(3)} units. Model mean: factor 0, specific ${r.expectedMean[1].toFixed(3)}. Seed ${state.seed}.`;
+      box.dataset.result=JSON.stringify(r);box.dataset.ready='true';
+    }
+    box.querySelector('.reseed').addEventListener('click',()=>{state.seed=(state.seed+1)>>>0;draw();});
+    new ResizeObserver(draw).observe(box);draw();
+  }).catch(error=>{box.querySelector('.status').textContent=`Could not load figure: ${error.message}`;});
+})();
+</script>

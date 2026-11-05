@@ -1,0 +1,13 @@
+---
+import Session from '../../layouts/Session.astro';
+export function getStaticPaths() {
+  const pages = import.meta.glob('../../content/sessions/*.mdx', { eager: true });
+  return Object.entries(pages).map(([path, page]) => ({
+    params: { session: path.split('/').pop().replace('.mdx', '') },
+    props: { page },
+  }));
+}
+const { page } = Astro.props;
+const Content = page.Content;
+---
+<Session subtitle={page.frontmatter.subtitle} title={page.frontmatter.title} headings={page.getHeadings()}><Content /></Session>

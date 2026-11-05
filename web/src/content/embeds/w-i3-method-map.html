@@ -1,0 +1,262 @@
+<div class="w-i3">
+<svg class="map" role="group" aria-label="Where each attribution method of section 3 plugs into the pipeline signals, optimiser, positions, P&L. Methods above rerun the construction with subsets of signals; methods below read the optimiser's equations at the joint optimum. Each method links to its subsection."></svg>
+<p class="detail" aria-live="polite"></p>
+</div>
+<style>
+[data-embed] .w-i3 { padding: 14px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--page-bg); color: var(--text-color); font: 14px/1.5 var(--default-font-family, sans-serif);
+  --ink: var(--text-color); --w-stage: #f5f5f5; --w-chip: var(--page-bg); --w-rerun: var(--info-color); --w-inside: var(--primary-color); }
+[data-theme="dark"] [data-embed] .w-i3 { --w-stage: #1f232b; --w-rerun: color-mix(in srgb, var(--info-color) 75%, white); --w-inside: color-mix(in srgb, var(--primary-color) 85%, white); }
+[data-embed] .w-i3 svg { display: block; width: 100%; height: auto; overflow: visible; }
+[data-embed] .w-i3 svg text { font-family: var(--default-font-family, sans-serif); fill: var(--ink); white-space: pre; }
+[data-embed] .w-i3 .muted text, [data-embed] .w-i3 text.muted { fill: var(--muted-color); }
+[data-embed] .w-i3 .band rect { stroke: none; }
+[data-embed] .w-i3 .band.rerun rect { fill: color-mix(in srgb, var(--w-rerun) 12%, var(--page-bg)); }
+[data-embed] .w-i3 .band.inside rect { fill: color-mix(in srgb, var(--w-inside) 12%, var(--page-bg)); }
+[data-embed] .w-i3 .rerun .btitle text { fill: var(--w-rerun); } [data-embed] .w-i3 .inside .btitle text { fill: var(--w-inside); }
+[data-embed] .w-i3 .chip rect { fill: var(--w-chip); stroke: var(--border-color); stroke-width: 1px; }
+[data-embed] .w-i3 .stage rect { fill: var(--w-stage); stroke: var(--border-color); stroke-width: 1px; }
+[data-embed] .w-i3 a { cursor: pointer; } [data-embed] .w-i3 a:focus { outline: none; }
+[data-embed] .w-i3 a.chip:hover .ctitle text, [data-embed] .w-i3 a.chip:focus-visible .ctitle text { text-decoration: underline; text-underline-offset: 2px; }
+[data-embed] .w-i3 .arrow line { stroke: var(--ink); stroke-width: 1.3px; }
+[data-embed] .w-i3 .arrow.rerun line { stroke: var(--w-rerun); } [data-embed] .w-i3 .arrow.inside line { stroke: var(--w-inside); }
+[data-embed] .w-i3 .arrow.rerun text { fill: var(--w-rerun); } [data-embed] .w-i3 .arrow.inside text { fill: var(--w-inside); }
+[data-embed] .w-i3 .chip, [data-embed] .w-i3 .stage, [data-embed] .w-i3 .arrow, [data-embed] .w-i3 .band { transition: opacity .15s; }
+[data-embed] .w-i3 svg.focus .chip:not(.on), [data-embed] .w-i3 svg.focus .stage:not(.on), [data-embed] .w-i3 svg.focus .arrow:not(.on) { opacity: .28; }
+[data-embed] .w-i3 svg.focus .band:not(.on) { opacity: .45; }
+[data-embed] .w-i3 .on.chip.rerun rect, [data-embed] .w-i3 .on.stage.rerun rect { stroke: var(--w-rerun); stroke-width: 2px; }
+[data-embed] .w-i3 .on.chip.inside rect, [data-embed] .w-i3 .on.stage.inside rect { stroke: var(--w-inside); stroke-width: 2px; }
+[data-embed] .w-i3 .on.arrow line { stroke-width: 2.2px; }
+[data-embed] .w-i3 .detail { min-height: 3em; margin: 10px 2px 0; font-size: 14px; line-height: 1.45; color: var(--muted-color); }
+[data-embed] .w-i3 .detail b { color: var(--text-color); }
+[data-embed] .w-i3 sub, [data-embed] .w-i3 sup { font-size: .72em; line-height: 0; }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const box = root.querySelector('.w-i3');
+  const svgEl = box.querySelector('svg');
+  const detail = box.querySelector('.detail');
+  const uid = 'w-i3-' + Math.random().toString(36).slice(2, 8);
+
+  // Rich SVG text with wrapping. Markup: **bold**, *italic*, _{sub}, ^{sup}, !{overline}, \n = line break.
+  const ctx = document.createElement('canvas').getContext('2d');
+  const family = () => getComputedStyle(svgEl).fontFamily || 'sans-serif';
+  function parse(str, bold) {
+    const out = []; let b = !!bold, i = false, buf = '', k = 0;
+    const push = (t, s = 0, o = false) => { if (t) out.push({ t, b, i, s, o }); };
+    while (k < str.length) {
+      if (str.startsWith('**', k)) { push(buf); buf = ''; b = !b; k += 2; }
+      else if (str[k] === '*') { push(buf); buf = ''; i = !i; k++; }
+      else if (str[k] === '!' && str[k + 1] === '{') { push(buf); buf = ''; const end = str.indexOf('}', k); push(str.slice(k + 2, end), 0, true); k = end + 1; }
+      else if ((str[k] === '_' || str[k] === '^') && str[k + 1] === '{') {
+        push(buf); buf = ''; const end = str.indexOf('}', k);
+        push(str.slice(k + 2, end), str[k] === '_' ? 1 : -1); k = end + 1;
+      } else { buf += str[k]; k++; }
+    }
+    push(buf); return out;
+  }
+  const fontOf = (r, size) => `${r.i ? 'italic ' : ''}${r.b ? 600 : 400} ${r.s ? size * 0.72 : size}px ${family()}`;
+  const measure = (r, size) => { ctx.font = fontOf(r, size); return ctx.measureText(r.t).width; };
+  function words(str, size, bold) {
+    const ws = [[]];
+    // A word may also break after a hyphen, a dash or a slash; the pieces are glued (no space).
+    for (const r of parse(str, bold)) r.t.split(' ').forEach((p, j) => {
+      if (j) ws.push([]);
+      p.split(/(?<=[-–\/])(?=.)/).forEach((q, k) => { if (k) { ws.push([]); ws.at(-1).glue = true; } if (q) ws.at(-1).push({ ...r, t: q }); });
+    });
+    return ws.filter(w => w.length).map(runs => {
+      let width = 0;
+      runs.forEach((r, j) => {
+        r.w = measure(r, size);
+        const prev = runs[j - 1];
+        if (r.s === -1 && prev && prev.s === 1) { r.dx = -prev.w; width += Math.max(0, r.w - prev.w); r.after = Math.max(0, prev.w - r.w); }
+        else width += r.w;
+      });
+      return { runs, width, glue: !!runs.glue };
+    });
+  }
+  function layout(str, maxW, size, bold) {
+    const lines = [];
+    for (const para of String(str).split('\n')) {
+      let line = null;
+      const space = measure({ t: ' ', b: false, i: false, s: 0 }, size);
+      // Glued pieces (a word split after a hyphen) break apart only when the whole word cannot fit on a line.
+      const chains = [];
+      for (const w of words(para, size, bold)) { if (w.glue && chains.length) chains.at(-1).push(w); else chains.push([w]); }
+      const add = w => {
+        const sp = w.glue ? 0 : space;
+        if (line && line.width + sp + w.width <= maxW) { line.words.push(w); line.width += sp + w.width; }
+        else { line = { words: [w], width: w.width }; lines.push(line); }
+      };
+      for (const chain of chains) {
+        const cw = d3.sum(chain, w => w.width);
+        if (chain.length > 1 && cw <= maxW && line && line.width + space + cw > maxW) line = null;
+        if (chain.length > 1 && cw <= maxW) {
+          if (line) { line.words.push(...chain); line.width += space + cw; } else { line = { words: chain, width: cw }; lines.push(line); }
+        } else chain.forEach(add);
+      }
+    }
+    return { lines, width: d3.max(lines, l => l.width) || 0 };
+  }
+  function draw(parent, str, { x, y, w = 1e4, size = 13, lh = size * 1.28, anchor = 'start', bold = false, fill = null, cls = '' }) {
+    const lay = layout(str, w, size, bold);
+    lay.lines.forEach((line, n) => {
+      const x0 = anchor === 'middle' ? x - line.width / 2 : anchor === 'end' ? x - line.width : x;
+      const text = parent.append('text').attr('x', x0).attr('y', y + n * lh + size * 0.9).attr('class', cls).style('font-size', size + 'px');
+      if (fill) text.style('fill', fill);
+      let cur = 0, pending = 0; const bars = [];
+      line.words.forEach((word, j) => {
+        word.runs.forEach((r, m) => {
+          const target = r.s === 1 ? size * 0.24 : r.s === -1 ? -size * 0.4 : 0;
+          const t = text.append('tspan').text((j && !m && !word.glue ? ' ' : '') + r.t).attr('dy', target - cur);
+          cur = target;
+          if (r.b) t.style('font-weight', 600); if (r.i) t.style('font-style', 'italic');
+          if (r.s) t.style('font-size', size * 0.72 + 'px');
+          if (r.o) bars.push([t.node(), size]);
+          if (r.dx) t.attr('dx', r.dx); else if (pending) t.attr('dx', pending);
+          pending = r.after || 0;
+        });
+      });
+      for (const [node, sz] of bars) {
+        try {
+          const k = node.getNumberOfChars() - 1, a = node.getStartPositionOfChar(k), b = node.getEndPositionOfChar(k);
+          parent.append('line').attr('x1', a.x + sz * 0.12).attr('x2', b.x + sz * 0.08).attr('y1', a.y - sz * 0.8).attr('y2', a.y - sz * 0.8)
+            .style('stroke', 'var(--ink)').attr('stroke-width', 0.9);
+        } catch { /* not rendered yet */ }
+      }
+    });
+    return { height: lay.lines.length ? (lay.lines.length - 1) * lh + size * 1.2 : 0, width: lay.width };
+  }
+
+  const toHTML = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/_\{(.+?)\}/g, '<sub>$1</sub>').replace(/\^\{(.+?)\}/g, '<sup>$1</sup>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+  let data = null, active = null, linkBase = '', arrows = {};
+  const href = id => document.getElementById(id) ? `#${id}` : `${linkBase}attribution/#${id}`;
+  const idle = 'Hover over or focus a method to see what it reruns or reads; each method links to its subsection.';
+
+  // What each method touches: pipeline stages and arrows.
+  const touches = { rerun: ['sig', 'opt', 'pos', 'pnl', 'subset', 'value', 'p0', 'p1', 'p2'], inside: ['opt', 'pos', 'down', 'up'] };
+
+  function render() {
+    if (!data) return;
+    const W = svgEl.clientWidth || 400, wide = W >= 600;
+    const svg = d3.select(svgEl); svg.selectAll('*').remove();
+    const defs = svg.append('defs');
+    for (const [k, c] of [['ink', 'var(--ink)'], ['rerun', 'var(--w-rerun)'], ['inside', 'var(--w-inside)']])
+      defs.append('marker').attr('id', `${uid}-${k}`).attr('viewBox', '0 0 10 10').attr('refX', 9.5).attr('refY', 5).attr('markerWidth', 8).attr('markerHeight', 8)
+        .attr('markerUnits', 'userSpaceOnUse').attr('orient', 'auto').append('path').attr('d', 'M0,0 L10,5 L0,10 L2.5,5 z').style('fill', c);
+    const fs = 13, sm = wide ? 12 : 12.5, bp = 10, gap = 8, ss = wide ? 13 : 12.5;
+    const methods = band => data.methods.filter(d => d.band === band);
+    const chipText = (d, x, y, w, g) => wide
+      ? (() => { const h1 = draw(g.append('g').attr('class', 'ctitle'), `**${d.title}** (${d.sec})`, { x, y, w, size: fs }).height; return h1 + 3 + draw(g, d.text, { x, y: y + h1 + 3, w, size: sm }).height; })()
+      : draw(g.append('g').attr('class', 'ctitle'), `**${d.title}** (${d.sec}): ${d.text}`, { x, y, w, size: fs }).height;
+    const measure = (fn) => { const g = svg.append('g').attr('visibility', 'hidden'); const h = fn(g); g.remove(); return h; };
+
+    function bandBlock(name, y0, titleFirst) {
+      const list = methods(name), b = data.bands[name];
+      const n = wide ? list.length : 1, cw = (W - 2 * bp - (n - 1) * gap) / n;
+      const chipH = wide ? Math.max(...list.map(d => measure(g => chipText(d, 0, 0, cw - 14, g)))) + 14 : 0;
+      const hs = list.map(d => wide ? chipH : measure(g => chipText(d, 0, 0, cw - 14, g)) + 14);
+      const titleStr = wide ? `**${b.title}**` : `**${b.title}**`;
+      const th = measure(g => draw(g, titleStr, { x: 0, y: 0, w: W - 2 * bp, size: 14 }).height) + (wide ? 0 : 2 + 12 * 1.2);
+      const chipsH = wide ? chipH : d3.sum(hs) + (list.length - 1) * 6;
+      const H = bp + th + 8 + chipsH + bp;
+      const g = svg.append('g').attr('class', `band ${name}`).attr('data-band', name);
+      g.append('rect').attr('x', 0).attr('y', y0).attr('width', W).attr('height', H).attr('rx', 8);
+      const ty = titleFirst ? y0 + bp : y0 + bp + chipsH + 8;
+      const cy = titleFirst ? y0 + bp + th + 8 : y0 + bp;
+      const tg = g.append('g').attr('class', 'btitle');
+      const tw = draw(tg, titleStr, { x: bp, y: ty, w: W - 2 * bp, size: 14 }).width;
+      if (wide) draw(g.append('g').attr('class', 'muted'), b.note, { x: bp + tw + 12, y: ty + 1.5, size: sm });
+      else draw(g.append('g').attr('class', 'muted'), b.note, { x: bp, y: ty + th - 12 * 1.2, size: sm });
+      let yy = cy;
+      list.forEach((d, i) => {
+        const x = wide ? bp + i * (cw + gap) : bp, y = wide ? cy : yy, h = hs[i];
+        const a = g.append('a').attr('class', `chip ${name}`).attr('data-key', d.key).attr('href', href(d.id))
+          .attr('aria-label', `${d.title}, section ${d.sec}: ${d.text.replace(/\*|_\{|\^\{|\}/g, '')}`);
+        a.append('rect').attr('x', x).attr('y', y).attr('width', cw).attr('height', h).attr('rx', 5);
+        chipText(d, x + 7, y + 7, cw - 14, a);
+        yy += h + 6;
+      });
+      return H;
+    }
+
+    let y = 0;
+    const topH = bandBlock('rerun', y, true); y += topH;
+    // Pipeline.
+    const ag = wide ? 46 : 52, sgap = wide ? 0 : 14;
+    const n = data.stages.length, sw = wide ? Math.min(118, W * 0.17) : (W - (n - 1) * sgap) / n;
+    const sx = i => wide ? i * (W - sw) / (n - 1) : i * (sw + sgap);
+    const showSub = s => wide || s.key !== 'opt';
+    const stageH = Math.max(...data.stages.map(s => measure(g => draw(g, `**${s.title}**`, { x: 0, y: 0, w: sw - 6, size: ss }).height + (showSub(s) ? 2 + draw(g, s.sub, { x: 0, y: 0, w: sw - 10, size: sm }).height : 0)))) + 16;
+    const py = y + ag;
+    const stageNodes = {};
+    data.stages.forEach((s, i) => {
+      const g = svg.append('g').attr('class', 'stage').attr('data-key', s.key);
+      g.append('rect').attr('x', sx(i)).attr('y', py).attr('width', sw).attr('height', stageH).attr('rx', 5);
+      const c = sx(i) + sw / 2;
+      const h1 = draw(g, `**${s.title}**`, { x: c, y: py + 8, w: sw - 6, size: ss, anchor: 'middle' }).height;
+      if (showSub(s)) draw(g.append('g').attr('class', s.key === 'opt' ? '' : 'muted'), s.sub, { x: c, y: py + 8 + h1 + 2, w: sw - 10, size: sm, anchor: 'middle' });
+      stageNodes[s.key] = { x: sx(i), c, y: py, h: stageH };
+    });
+    let below = py + stageH;
+    if (!wide) {
+      const g = svg.append('g').attr('class', 'stage note muted').attr('data-key', 'opt');
+      const sub = data.stages.find(s => s.key === 'opt').sub;
+      const lay = layout(sub, W, sm);
+      const c = Math.max(lay.width / 2 + 1, stageNodes.opt.c);
+      below += 4 + draw(g, sub, { x: c, y: below + 4, size: sm, anchor: 'middle' }).height;
+      stageNodes.opt.note = below;
+    }
+    const arrow = (key, cls, x1, y1, x2, y2, label, side) => {
+      const g = svg.append('g').attr('class', `arrow ${cls}`).attr('data-key', key);
+      g.append('line').attr('x1', x1).attr('y1', y1).attr('x2', x2).attr('y2', y2).attr('marker-end', `url(#${uid}-${cls || 'ink'})`);
+      if (label) arrows[key] = { g: g.append('g').attr('class', 'lab'), x: side === 'left' ? x1 - 7 : x1 + 7, y: (y1 + y2) / 2, w: wide ? 170 : 74, size: sm, anchor: side === 'left' ? 'end' : 'start', label };
+    };
+    data.stages.slice(0, -1).forEach((s, i) => { const a = stageNodes[s.key], b = stageNodes[data.stages[i + 1].key]; arrow('p' + i, '', a.x + sw + 1, py + stageH / 2, b.x - 2, py + stageH / 2); });
+    arrows = {};
+    arrow('subset', 'rerun', stageNodes.sig.c, y, stageNodes.sig.c, py - 1, 'subset *S*', 'right');
+    arrow('value', 'rerun', stageNodes.pnl.c, py, stageNodes.pnl.c, y + 1, '*v*(*S*)', 'left');
+    const by = below + ag;
+    arrow('down', 'inside', stageNodes.opt.c, (stageNodes.opt.note || below), stageNodes.opt.c, by - 1, 'equations, multipliers', wide ? 'right' : 'left');
+    arrow('up', 'inside', stageNodes.pos.c, by, stageNodes.pos.c, py + stageH + 1, '*x_{t}^{k}* per signal', 'right');
+    const botH = bandBlock('inside', by, false);
+    const H = by + botH;
+    svg.attr('viewBox', `0 0 ${W} ${Math.ceil(H)}`).attr('height', Math.ceil(H));
+    svg.selectAll('a.chip').on('mouseenter focus', function () { setActive(this.dataset.key); }).on('mouseleave blur', () => setActive(null));
+    paint();
+  }
+
+  // Highlight what the active method touches and relabel the arrows it uses; no redraw.
+  function paint() {
+    const m = active && data.methods.find(d => d.key === active);
+    const svg = d3.select(svgEl).classed('focus', !!m);
+    const on = el => m && touches[m.band].includes(el.dataset.key);
+    svg.selectAll('.band').classed('on', function () { return m && this.dataset.band === m.band; });
+    svg.selectAll('a.chip').classed('on', function () { return m && this.dataset.key === m.key; });
+    svg.selectAll('.stage').classed('on', function () { return on(this); }).classed('rerun', function () { return on(this) && m.band === 'rerun'; }).classed('inside', function () { return on(this) && m.band === 'inside'; });
+    svg.selectAll('.arrow').classed('on', function () { return on(this); });
+    const own = { subset: m && m.subset, value: m && m.value, down: m && m.down, up: m && m.up };
+    for (const [key, a] of Object.entries(arrows)) {
+      a.g.selectAll('*').remove();
+      const label = own[key] || a.label, lay = layout(label, a.w, a.size);
+      draw(a.g, label, { x: a.x, y: a.y - lay.lines.length * a.size * 1.28 / 2, w: a.w, size: a.size, anchor: a.anchor });
+    }
+  }
+
+  function setActive(key) {
+    if (key === active) return;
+    active = key;
+    paint();
+    const m = active && data.methods.find(d => d.key === active);
+    detail.innerHTML = m ? `<b>${toHTML(m.title)}</b> (${m.sec}). ${toHTML(m.detail)}` : idle;
+    box.dataset.active = active || '';
+  }
+
+  linkBase = root.dataset.url.replace(/data\/[^/]*$/, '');
+  d3.json(root.dataset.url).then(d => {
+    data = d; detail.textContent = idle;
+    new ResizeObserver(() => render()).observe(svgEl);
+    render(); box.dataset.ready = 'true';
+  }).catch(error => { detail.textContent = `Could not load figure: ${error.message}`; });
+})();
+</script>

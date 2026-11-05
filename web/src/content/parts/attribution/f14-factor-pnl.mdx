@@ -1,0 +1,10 @@
+import HtmlEmbed from '../../../components/HtmlEmbed.astro';
+import WhatToNotice from '../../../components/post/WhatToNotice.astro';
+
+<HtmlEmbed src="d3-f14-factor-pnl.html" data="f14-factor-pnl.json" title="Factor and specific P&L" desc="Synthetic daily P&L for 100 assets. Adjust the factor exposure, signal strength and history length. Signal strength is the correlation between the signal and the specific asset return." />
+
+<WhatToNotice>
+
+At the default zero factor exposure, specific P&L equals total P&L. Increase exposure to 4: factor shocks then cause most of the day-to-day variance, while the model's expected gain still comes only from the specific signal. Select a short history, then press “New history” to see how realised mean shares change. The sample covariance between factor and specific P&L can be nonzero even though the model sets it to zero.
+
+</WhatToNotice>

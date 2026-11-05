@@ -1,0 +1,13 @@
+{
+  "synthetic": true,
+  "source": "Author-chosen synthetic positions and annual volatilities. Euler identity: Litterman (1996), p. 64; hot-spots report, Exhibit 22, p. 66. Covariance specialization derived from that identity.",
+  "sizes": [
+    80,
+    20
+  ],
+  "volPercent": [
+    5,
+    30
+  ],
+  "correlation": 0.2
+}

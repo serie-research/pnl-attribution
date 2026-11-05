@@ -1,0 +1,47 @@
+{
+  "source": "Section 1 of the attribution page: the opening (reference P&L, identity, residual), 1.1 (snapshots, position and trading P&L), 1.2 (ex ante and ex post exposures) and 1.3 (signals and state indicators). Bar heights are schematic, not data. Ids are the headings' slugs.",
+  "identity": [
+    { "key": "pi", "sym": "Π", "label": "realised P&L" },
+    { "op": "−" },
+    { "key": "ref", "sym": "Π^{ref}", "label": "reference P&L" },
+    { "op": "=" },
+    { "key": "sum", "sym": "Σ*_{j}* Π*_{j}*", "label": "components" },
+    { "op": "+" },
+    { "key": "eps", "sym": "*ε*", "label": "residual" }
+  ],
+  "bars": [
+    { "key": "ref", "kind": "start", "value": 3, "sym": "Π^{ref}", "label": "reference P&L", "focus": { "reference": "paper portfolio or midprice" } },
+    { "key": "c1", "kind": "step", "value": 1.5, "sym": "Π_{1}", "label": "component", "focus": { "interval": "position P&L", "information": "ex ante or ex post", "indicator": "signal or state" } },
+    { "key": "c2", "kind": "step", "value": 1.1, "sym": "Π_{2}", "label": "component", "focus": { "interval": "trading P&L: spread", "information": "ex ante or ex post", "indicator": "signal or state" } },
+    { "key": "c3", "kind": "step", "value": -0.7, "sym": "Π_{3}", "label": "component", "focus": { "interval": "trading P&L: costs", "information": "ex ante or ex post", "indicator": "signal or state" } },
+    { "key": "eps", "kind": "residual", "value": 0.4, "sym": "*ε*", "label": "residual: reported separately", "focus": { "information": "left unallocated by the model" } },
+    { "key": "pi", "kind": "end", "sym": "Π", "label": "realised P&L" }
+  ],
+  "difference": { "sym": "Π − Π^{ref}", "label": "to explain" },
+  "schematic": "Schematic: the bar heights are not data.",
+  "choicesTitle": "The four choices",
+  "choices": [
+    { "key": "reference", "n": 1, "title": "Reference", "icon": "ledger",
+      "text": "A paper portfolio, or positions valued at the midprice.",
+      "links": [ { "text": "§1", "id": "1-what-it-means-to-attribute-a-pl" }, { "text": "§2.5", "id": "25-spread-and-inventory-a-market-makers-pl" } ],
+      "on": ["ref", "diff"],
+      "detail": "The reference sets Π^{ref}, the P&L we subtract, and so the difference to explain. What each component means depends on it." },
+    { "key": "interval", "n": 2, "title": "Interval", "icon": "clock",
+      "text": "Daily snapshots see position P&L. Trades between snapshots are trading P&L: spread, intraday alpha, costs.",
+      "links": [ { "text": "§1.1", "id": "11-what-daily-snapshots-miss" } ],
+      "on": ["c1", "c2", "c3", "sum"],
+      "detail": "Daily snapshots capture position P&L. Trades between snapshots go to trading P&L: spread earned, intraday alpha and costs." },
+    { "key": "information", "n": 3, "title": "Information", "icon": "eye",
+      "text": "Exposures declared before the result (ex ante), or fitted after it (ex post).",
+      "links": [ { "text": "§1.2", "id": "12-information-and-accounting-interval" } ],
+      "on": ["c1", "c2", "c3", "sum", "eps"],
+      "detail": "This choice sets when the exposures behind each Π*_{j}* are known. Ex ante exposures are declared before the result, and ex post exposures are fitted after it." },
+    { "key": "indicator", "n": 4, "title": "Kind of indicator", "icon": "wheel-thermometer",
+      "text": "Signals drive trades; removing one and rerunning the policy shows its effect. State indicators describe conditions: spread, volatility, market order flow.",
+      "links": [ { "text": "§1.3", "id": "13-two-kinds-of-indicator" }, { "text": "§3: signals", "id": "3-attributing-a-pl-to-signals" }, { "text": "§4: state indicators", "id": "4-correlated-indicators-and-the-value-of-a-subset" } ],
+      "on": ["c1", "c2", "c3", "sum"],
+      "detail": "Each index *j* stands for a component: a signal, a position or a cost. A signal drives trades, and rerunning the policy without it shows what it changes (§3). A state indicator describes market conditions; §4 relates it to the P&L but gives it no share of the money." }
+  ],
+  "caution": { "title": "The amounts add up.", "text": "This does not show that they explain the P&L." },
+  "idle": "Hover over, focus or tap a choice to see which terms of the identity it fixes. Each choice links to its subsection."
+}

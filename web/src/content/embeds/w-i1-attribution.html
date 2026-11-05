@@ -1,0 +1,342 @@
+<div class="w-i1">
+<svg class="identity" role="group" aria-label="The attribution identity: realised P&L minus reference P&L equals the sum of the components plus a residual, drawn as a waterfall from the reference P&L to the realised P&L with the residual kept as its own bar. Four choices fix what the components mean: the reference, the interval, the information and the kind of indicator. Each choice links to its subsection. The amounts add up; this does not show that they explain the P&L."></svg>
+<p class="detail" aria-live="polite"></p>
+</div>
+<style>
+[data-embed] .w-i1 { padding: 14px 16px; border: 1px solid var(--border-color); border-radius: 10px; background: var(--page-bg); color: var(--text-color); font: 14px/1.5 var(--default-font-family, sans-serif);
+  --ink: var(--text-color); --w-box: #f5f5f5; --w-comp: var(--info-color); --w-total: color-mix(in srgb, var(--text-color) 42%, var(--page-bg)); --w-focus: var(--primary-color); }
+[data-theme="dark"] [data-embed] .w-i1 { --w-box: #1f232b; --w-comp: color-mix(in srgb, var(--info-color) 80%, white); --w-focus: color-mix(in srgb, var(--primary-color) 85%, white); }
+[data-embed] .w-i1 svg { display: block; width: 100%; height: auto; overflow: visible; }
+[data-embed] .w-i1 svg text { font-family: var(--default-font-family, sans-serif); fill: var(--ink); white-space: pre; }
+[data-embed] .w-i1 .muted text, [data-embed] .w-i1 text.muted { fill: var(--muted-color); }
+[data-embed] .w-i1 .bar { stroke: none; }
+[data-embed] .w-i1 .bar.total { fill: var(--w-total); }
+[data-embed] .w-i1 .bar.step { fill: var(--w-comp); }
+[data-embed] .w-i1 .bar.step.neg { fill: color-mix(in srgb, var(--w-comp) 40%, var(--page-bg)); stroke: var(--w-comp); stroke-width: 1.5px; }
+[data-embed] .w-i1 .bar.residual { stroke: var(--muted-color); stroke-width: 1px; stroke-dasharray: 3 2; }
+[data-embed] .w-i1 .hatch line { stroke: var(--muted-color); stroke-width: 1.2px; }
+[data-embed] .w-i1 .base, [data-embed] .w-i1 .link-line { stroke: var(--muted-color); stroke-width: 1px; }
+[data-embed] .w-i1 .link-line { stroke-dasharray: 3 3; }
+[data-embed] .w-i1 .guide { stroke: var(--muted-color); stroke-width: 1px; stroke-dasharray: 2 3; stroke-opacity: .7; }
+[data-embed] .w-i1 .brace { stroke: var(--ink); stroke-width: 1.4px; fill: none; }
+[data-embed] .w-i1 .alt text { fill: var(--w-focus); }
+[data-embed] .w-i1 .card .bg { fill: var(--w-box); stroke: var(--border-color); stroke-width: 1px; }
+[data-embed] .w-i1 .badge { fill: var(--w-comp); }
+[data-embed] .w-i1 .num { fill: #fff !important; font-weight: 600; }
+[data-theme="dark"] [data-embed] .w-i1 .num { fill: #0f1115 !important; }
+[data-embed] .w-i1 a { cursor: pointer; } [data-embed] .w-i1 a:focus { outline: none; }
+[data-embed] .w-i1 a.ptr text { fill: var(--link-color, var(--w-comp)); }
+[data-embed] .w-i1 a:hover .tt text, [data-embed] .w-i1 a:focus-visible .tt text, [data-embed] .w-i1 a.ptr:hover text, [data-embed] .w-i1 a.ptr:focus-visible text { text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+[data-embed] .w-i1 .caution .bg { fill: color-mix(in srgb, var(--w-focus) 9%, var(--page-bg)); stroke: none; }
+[data-embed] .w-i1 .caution .edge { fill: var(--w-focus); }
+[data-embed] .w-i1 .part, [data-embed] .w-i1 .card, [data-embed] .w-i1 .op { transition: opacity .15s; }
+[data-embed] .w-i1 svg.focus .part:not(.on), [data-embed] .w-i1 svg.focus .op { opacity: .28; }
+[data-embed] .w-i1 svg.focus .card:not(.on) { opacity: .55; }
+[data-embed] .w-i1 .part.on .bar { stroke: var(--w-focus); stroke-width: 2px; stroke-dasharray: none; }
+[data-embed] .w-i1 .term.on text, [data-embed] .w-i1 .diff.on text { fill: var(--w-focus); }
+[data-embed] .w-i1 .diff.on .brace { stroke: var(--w-focus); }
+[data-embed] .w-i1 .card.on .bg { stroke: var(--w-focus); stroke-width: 2px; }
+[data-embed] .w-i1 .card.on .badge { fill: var(--w-focus); }
+[data-embed] .w-i1 .detail { min-height: 3em; margin: 10px 2px 0; font-size: 14px; line-height: 1.45; color: var(--muted-color); }
+[data-embed] .w-i1 .detail b { color: var(--text-color); }
+[data-embed] .w-i1 sub, [data-embed] .w-i1 sup { font-size: .72em; line-height: 0; }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const box = root.querySelector('.w-i1');
+  const svgEl = box.querySelector('svg');
+  const detail = box.querySelector('.detail');
+  const uid = 'w-i1-' + Math.random().toString(36).slice(2, 8);
+
+  // Rich SVG text with wrapping. Markup: **bold**, *italic*, _{sub}, ^{sup}, !{overline}, \n = line break.
+  const ctx = document.createElement('canvas').getContext('2d');
+  const family = () => getComputedStyle(svgEl).fontFamily || 'sans-serif';
+  function parse(str, bold) {
+    const out = []; let b = !!bold, i = false, buf = '', k = 0;
+    const push = (t, s = 0, o = false) => { if (t) out.push({ t, b, i, s, o }); };
+    while (k < str.length) {
+      if (str.startsWith('**', k)) { push(buf); buf = ''; b = !b; k += 2; }
+      else if (str[k] === '*') { push(buf); buf = ''; i = !i; k++; }
+      else if (str[k] === '!' && str[k + 1] === '{') { push(buf); buf = ''; const end = str.indexOf('}', k); push(str.slice(k + 2, end), 0, true); k = end + 1; }
+      else if ((str[k] === '_' || str[k] === '^') && str[k + 1] === '{') {
+        push(buf); buf = ''; const end = str.indexOf('}', k);
+        push(str.slice(k + 2, end), str[k] === '_' ? 1 : -1); k = end + 1;
+      } else { buf += str[k]; k++; }
+    }
+    push(buf); return out;
+  }
+  const fontOf = (r, size) => `${r.i ? 'italic ' : ''}${r.b ? 600 : 400} ${r.s ? size * 0.72 : size}px ${family()}`;
+  const measure = (r, size) => { ctx.font = fontOf(r, size); return ctx.measureText(r.t).width; };
+  function words(str, size, bold) {
+    const ws = [[]];
+    // A word may also break after a hyphen, a dash or a slash; the pieces are glued (no space).
+    for (const r of parse(str, bold)) r.t.split(' ').forEach((p, j) => {
+      if (j) ws.push([]);
+      p.split(/(?<=[-–\/])(?=.)/).forEach((q, k) => { if (k) { ws.push([]); ws.at(-1).glue = true; } if (q) ws.at(-1).push({ ...r, t: q }); });
+    });
+    return ws.filter(w => w.length).map(runs => {
+      let width = 0;
+      runs.forEach((r, j) => {
+        r.w = measure(r, size);
+        const prev = runs[j - 1];
+        if (r.s === -1 && prev && prev.s === 1) { r.dx = -prev.w; width += Math.max(0, r.w - prev.w); r.after = Math.max(0, prev.w - r.w); }
+        else width += r.w;
+      });
+      return { runs, width, glue: !!runs.glue };
+    });
+  }
+  function layout(str, maxW, size, bold) {
+    const lines = [];
+    for (const para of String(str).split('\n')) {
+      let line = null;
+      const space = measure({ t: ' ', b: false, i: false, s: 0 }, size);
+      // Glued pieces (a word split after a hyphen) break apart only when the whole word cannot fit on a line.
+      const chains = [];
+      for (const w of words(para, size, bold)) { if (w.glue && chains.length) chains.at(-1).push(w); else chains.push([w]); }
+      const add = w => {
+        const sp = w.glue ? 0 : space;
+        if (line && line.width + sp + w.width <= maxW) { line.words.push(w); line.width += sp + w.width; }
+        else { line = { words: [w], width: w.width }; lines.push(line); }
+      };
+      for (const chain of chains) {
+        const cw = d3.sum(chain, w => w.width);
+        if (chain.length > 1 && cw <= maxW && line && line.width + space + cw > maxW) line = null;
+        if (chain.length > 1 && cw <= maxW) {
+          if (line) { line.words.push(...chain); line.width += space + cw; } else { line = { words: chain, width: cw }; lines.push(line); }
+        } else chain.forEach(add);
+      }
+    }
+    return { lines, width: d3.max(lines, l => l.width) || 0 };
+  }
+  function draw(parent, str, { x, y, w = 1e4, size = 13, lh = size * 1.28, anchor = 'start', bold = false, fill = null, cls = '' }) {
+    const lay = layout(str, w, size, bold);
+    lay.lines.forEach((line, n) => {
+      const x0 = anchor === 'middle' ? x - line.width / 2 : anchor === 'end' ? x - line.width : x;
+      const text = parent.append('text').attr('x', x0).attr('y', y + n * lh + size * 0.9).attr('class', cls).style('font-size', size + 'px');
+      if (fill) text.style('fill', fill);
+      let cur = 0, pending = 0; const bars = [];
+      line.words.forEach((word, j) => {
+        word.runs.forEach((r, m) => {
+          const target = r.s === 1 ? size * 0.24 : r.s === -1 ? -size * 0.4 : 0;
+          const t = text.append('tspan').text((j && !m && !word.glue ? ' ' : '') + r.t).attr('dy', target - cur);
+          cur = target;
+          if (r.b) t.style('font-weight', 600); if (r.i) t.style('font-style', 'italic');
+          if (r.s) t.style('font-size', size * 0.72 + 'px');
+          if (r.o) bars.push([t.node(), size]);
+          if (r.dx) t.attr('dx', r.dx); else if (pending) t.attr('dx', pending);
+          pending = r.after || 0;
+        });
+      });
+      for (const [node, sz] of bars) {
+        try {
+          const k = node.getNumberOfChars() - 1, a = node.getStartPositionOfChar(k), b = node.getEndPositionOfChar(k);
+          parent.append('line').attr('x1', a.x + sz * 0.12).attr('x2', b.x + sz * 0.08).attr('y1', a.y - sz * 0.8).attr('y2', a.y - sz * 0.8)
+            .style('stroke', 'var(--ink)').attr('stroke-width', 0.9);
+        } catch { /* not rendered yet */ }
+      }
+    });
+    return { height: lay.lines.length ? (lay.lines.length - 1) * lh + size * 1.2 : 0, width: lay.width };
+  }
+
+  const toHTML = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/_\{(.+?)\}/g, '<sub>$1</sub>').replace(/\^\{(.+?)\}/g, '<sup>$1</sup>').replace(/\*(.+?)\*/g, '<i>$1</i>');
+  const plain = s => s.replace(/\*|_\{|\^\{|\}/g, '');
+  let data = null, active = null, linkBase = '';
+  const href = id => document.getElementById(id) ? `#${id}` : `${linkBase}attribution/#${id}`;
+  const lines = (str, w, size) => layout(str, w, size).lines.length;
+
+  // Waterfall geometry: totals stand on zero, components and the residual float between running totals.
+  function steps() {
+    let run = 0;
+    return data.bars.map(b => {
+      const from = b.kind === 'step' || b.kind === 'residual' ? run : 0;
+      if (b.kind === 'start') run = b.value; else if (b.kind !== 'end') run += b.value;
+      const to = run;
+      return { ...b, from, to, lo: Math.min(from, to), hi: Math.max(from, to), cls: b.kind === 'step' ? 'step' : b.kind === 'residual' ? 'residual' : 'total' };
+    });
+  }
+  // A bar's label slot holds the resting label and one alternative per choice; its height fits the longest.
+  function labelSlot(g, b, x, y, w, size, anchor) {
+    const rest = g.append('g').attr('class', 'rest muted');
+    draw(rest, b.label, { x, y, w, size, anchor });
+    for (const [choice, text] of Object.entries(b.focus || {}))
+      draw(g.append('g').attr('class', 'alt').attr('data-choice', choice).attr('display', 'none'), text, { x, y, w, size, anchor });
+  }
+  const slotLines = (w, size) => d3.max(data.bars, b => d3.max([b.label, ...Object.values(b.focus || {})], s => lines(s, w, size)));
+
+  function formula(svg, y0, W, wide) {
+    const fs = wide ? 22 : 19, ls = 12, gap = wide ? 12 : 6;
+    const terms = data.identity.filter(t => t.key), ops = data.identity.filter(t => t.op);
+    const opW = ops.map(t => layout(t.op, 1e4, fs).width + 2 * gap);
+    const need = terms.map(t => Math.max(layout(t.sym, 1e4, fs).width, layout(t.label, 1e4, ls).width) + 8);
+    const room = W - d3.sum(opW);
+    const colW = d3.sum(need) <= room ? need : terms.map((t, i) => Math.max(layout(t.sym, 1e4, fs).width + 4, room / terms.length));
+    let x = (W - d3.sum(opW) - d3.sum(colW)) / 2, k = 0, o = 0, lab = 0;
+    const top = y0 + 4;
+    for (const t of data.identity) {
+      if (t.op) { const w = opW[o++]; draw(svg.append('g').attr('class', 'op'), t.op, { x: x + w / 2, y: top, size: fs, anchor: 'middle' }); x += w; continue; }
+      const w = colW[k++], g = svg.append('g').attr('class', 'part term').attr('data-key', t.key);
+      draw(g, t.sym, { x: x + w / 2, y: top, size: fs, anchor: 'middle' });
+      lab = Math.max(lab, draw(g.append('g').attr('class', 'muted'), t.label, { x: x + w / 2, y: top + fs * 1.2 + 2, w: w - 4, size: ls, anchor: 'middle' }).height);
+      x += w;
+    }
+    return 4 + fs * 1.2 + 2 + lab;
+  }
+
+  function hatch(svg) {
+    const p = svg.append('defs').append('pattern').attr('id', `${uid}-hatch`).attr('class', 'hatch').attr('patternUnits', 'userSpaceOnUse')
+      .attr('width', 6).attr('height', 6).attr('patternTransform', 'rotate(45)');
+    p.append('line').attr('x1', 0).attr('y1', 0).attr('x2', 0).attr('y2', 6);
+  }
+  function bar(g, b, x, y, w, h) {
+    const r = g.append('rect').attr('class', `bar ${b.cls}${b.to < b.from ? ' neg' : ''}`).attr('x', x).attr('y', y).attr('width', w).attr('height', Math.max(h, 1.5));
+    if (b.cls === 'residual') r.style('fill', `url(#${uid}-hatch)`);
+  }
+
+  // Wide: vertical columns, the difference to explain as a brace right of the last bar.
+  function waterfallWide(svg, y0, W) {
+    const bs = steps(), n = bs.length, right = 112, cw = (W - right) / n, bw = Math.min(56, cw * 0.56);
+    const ph = 150, top = y0 + 20;
+    const y = d3.scaleLinear().domain([0, d3.max(bs, b => b.hi) * 1.04]).range([top + ph, top]);
+    const cx = i => cw * i + cw / 2;
+    const ref = bs[0], end = bs.at(-1), bx = cx(n - 1) + bw / 2 + 12;
+    draw(svg.append('g').attr('class', 'muted'), data.schematic, { x: W, y: y0, size: 11, anchor: 'end' });
+    svg.append('line').attr('class', 'guide').attr('x1', cx(0) + bw / 2).attr('x2', bx).attr('y1', y(ref.to)).attr('y2', y(ref.to));
+    svg.append('line').attr('class', 'base').attr('x1', 0).attr('x2', cx(n - 1) + cw / 2).attr('y1', y(0)).attr('y2', y(0));
+    bs.slice(0, -1).forEach((b, i) => svg.append('line').attr('class', 'link-line')
+      .attr('x1', cx(i) + bw / 2).attr('x2', cx(i + 1) - bw / 2).attr('y1', y(b.to)).attr('y2', y(b.to)));
+    const ss = 14, ls = 12, slot = slotLines(cw - 6, ls) * ls * 1.28;
+    bs.forEach((b, i) => {
+      const g = svg.append('g').attr('class', 'part').attr('data-key', b.key);
+      bar(g, b, cx(i) - bw / 2, y(b.hi), bw, y(b.lo) - y(b.hi));
+      draw(g, b.sym, { x: cx(i), y: top + ph + 6, size: ss, anchor: 'middle' });
+      labelSlot(g.append('g').attr('class', 'lab'), b, cx(i), top + ph + 6 + ss * 1.2 + 2, cw - 6, ls, 'middle');
+    });
+    // The brace spans the difference to explain, from the reference level to the realised level.
+    const d = svg.append('g').attr('class', 'part diff').attr('data-key', 'diff'), y1 = y(end.to), y2 = y(ref.to), m = (y1 + y2) / 2;
+    d.append('path').attr('class', 'brace').attr('d', `M${bx},${y1} q6,0 6,6 V${m - 6} q0,6 6,6 q-6,0 -6,6 V${y2 - 6} q0,6 -6,6`);
+    const lab = d.append('g'); const h1 = draw(lab, data.difference.sym, { x: bx + 18, y: 0, size: 14 }).height;
+    draw(lab.append('g').attr('class', 'muted'), data.difference.label, { x: bx + 18, y: h1 + 1, size: 12 });
+    lab.attr('transform', `translate(0,${m - (h1 + 1 + 12 * 1.2) / 2})`);
+    return 20 + ph + 6 + ss * 1.2 + 2 + slot;
+  }
+
+  // Narrow: one row per bar, labels on the left, the brace under the last row.
+  function waterfallNarrow(svg, y0, W) {
+    const bs = steps(), lw = Math.min(118, W * 0.37), ss = 14, ls = 12, bh = 16;
+    const slot = slotLines(lw, ls) * ls * 1.28, rh = ss * 1.2 + 2 + slot + 10;
+    const x = d3.scaleLinear().domain([0, d3.max(bs, b => b.hi) * 1.04]).range([lw + 10, W - 4]);
+    const ref = bs[0], end = bs.at(-1), cy = i => y0 + i * rh + ss * 0.6;
+    const yEnd = y0 + bs.length * rh + 4;
+    svg.append('line').attr('class', 'guide').attr('x1', x(ref.to)).attr('x2', x(ref.to)).attr('y1', cy(0) + bh / 2).attr('y2', yEnd);
+    svg.append('line').attr('class', 'base').attr('x1', x(0)).attr('x2', x(0)).attr('y1', y0 - 4).attr('y2', cy(bs.length - 1) + bh / 2 + 4);
+    bs.slice(0, -1).forEach((b, i) => svg.append('line').attr('class', 'link-line')
+      .attr('x1', x(b.to)).attr('x2', x(b.to)).attr('y1', cy(i) + bh / 2).attr('y2', cy(i + 1) - bh / 2));
+    bs.forEach((b, i) => {
+      const g = svg.append('g').attr('class', 'part').attr('data-key', b.key), y = y0 + i * rh;
+      bar(g, b, x(b.lo), cy(i) - bh / 2, x(b.hi) - x(b.lo), bh);
+      draw(g, b.sym, { x: 0, y, size: ss });
+      labelSlot(g.append('g').attr('class', 'lab'), b, 0, y + ss * 1.2 + 2, lw, ls, 'start');
+    });
+    const d = svg.append('g').attr('class', 'part diff').attr('data-key', 'diff'), x1 = x(ref.to), x2 = x(end.to), m = (x1 + x2) / 2;
+    d.append('path').attr('class', 'brace').attr('d', `M${x1},${yEnd} q0,6 6,6 H${m - 6} q6,0 6,6 q0,-6 6,-6 H${x2 - 6} q6,0 6,-6`);
+    const text = `${data.difference.sym} ${data.difference.label}`, tw = layout(text, 1e4, 13).width;
+    const tx = Math.min(Math.max(m, tw / 2), W - tw / 2), ty = yEnd + 16;
+    const lab = d.append('g'); const w1 = draw(lab, data.difference.sym, { x: tx - tw / 2, y: ty, size: 13 }).width;
+    draw(lab.append('g').attr('class', 'muted'), data.difference.label, { x: tx - tw / 2 + w1 + layout(' ', 1e4, 13).width + 3, y: ty, size: 13 });
+    draw(svg.append('g').attr('class', 'muted'), data.schematic, { x: W, y: ty + 13 * 1.2 + 6, size: 11, anchor: 'end' });
+    return ty + 13 * 1.2 + 6 + 11 * 1.2 - y0;
+  }
+
+  function cards(svg, y0, W, wide) {
+    const cols = wide ? 2 : 1, gap = 10, cw = (W - (cols - 1) * gap) / cols, p = 10, r = 10, ts = 14, fs = 13, ls = 12.5, inner = cw - 2 * p;
+    const th = draw(svg.append('g'), `**${data.choicesTitle}**`, { x: 0, y: y0, w: W, size: 14.5 }).height;
+    const content = (g, c, x, y) => {
+      const a = g.append('a').attr('class', 'ctitle').attr('href', href(c.links[0].id)).attr('aria-label', `${c.title}, section ${c.links[0].text.slice(1)}: ${plain(c.text)}`);
+      a.append('rect').attr('class', 'hit').attr('x', x).attr('y', y).attr('width', inner).attr('height', 2 * r).style('fill', 'transparent');
+      a.append('circle').attr('class', 'badge').attr('cx', x + r).attr('cy', y + r).attr('r', r);
+      a.append('text').attr('class', 'num').attr('x', x + r).attr('y', y + r).attr('dy', '0.35em').attr('text-anchor', 'middle').style('font-size', '12px').text(c.n);
+      const tt = draw(a.append('g').attr('class', 'tt'), `**${c.title}**`, { x: x + 2 * r + 8, y: y + r - ts * 0.62, w: inner - 2 * r - 8, size: ts }).height;
+      let h = Math.max(2 * r, tt) + 6;
+      h += draw(g, c.text, { x, y: y + h, w: inner, size: fs }).height + 5;
+      // Section pointers, one link each; they wrap as words do.
+      let lx = x, ly = y + h; const sp = 14;
+      c.links.forEach((l, i) => {
+        const tw = layout(l.text, 1e4, ls).width;
+        if (i && lx + tw > x + inner) { lx = x; ly += ls * 1.35; }
+        draw(g.append('a').attr('class', 'ptr').attr('href', href(l.id)).attr('aria-label', `Section ${plain(l.text).slice(1)}`), l.text, { x: lx, y: ly, size: ls });
+        lx += tw + sp;
+      });
+      return ly - y + ls * 1.2;
+    };
+    const measureCard = c => { const g = svg.append('g').attr('visibility', 'hidden'); const h = content(g, c, 0, 0); g.remove(); return h + 2 * p; };
+    const hs = data.choices.map(measureCard);
+    const rowsH = d3.range(Math.ceil(hs.length / cols)).map(k => d3.max(hs.slice(k * cols, k * cols + cols)));
+    let y = y0 + th + 8;
+    data.choices.forEach((c, i) => {
+      const row = Math.floor(i / cols), col = i % cols, x = col * (cw + gap), h = wide ? rowsH[row] : hs[i];
+      if (col === 0 && i) y += rowsH[row - 1] + gap;
+      const g = svg.append('g').attr('class', 'card').attr('data-key', c.key);
+      g.append('rect').attr('class', 'bg').attr('x', x + 0.5).attr('y', y + 0.5).attr('width', cw - 1).attr('height', h - 1).attr('rx', 6);
+      content(g, c, x + p, y + p);
+      // A mouse highlights on hover, a tap on the card highlights it until the next tap elsewhere.
+      g.on('pointerenter', e => { if (e.pointerType === 'mouse') setActive(c.key); }).on('pointerleave', e => { if (e.pointerType === 'mouse') setActive(null); })
+        .on('focusin', () => setActive(c.key)).on('focusout', () => setActive(null))
+        .on('click', e => { if (!e.target.closest('a')) setActive(c.key); });
+    });
+    return y + rowsH.at(-1) - y0;
+  }
+
+  function caution(svg, y0, W) {
+    const g = svg.append('g').attr('class', 'caution'), p = 12, size = 14;
+    const text = `**${data.caution.title}** ${data.caution.text}`, h = layout(text, W - 2 * p - 4, size).lines.length * size * 1.28 + 2 * p - size * 0.08;
+    g.append('rect').attr('class', 'bg').attr('x', 0).attr('y', y0).attr('width', W).attr('height', h).attr('rx', 4);
+    g.append('rect').attr('class', 'edge').attr('x', 0).attr('y', y0).attr('width', 4).attr('height', h);
+    draw(g, text, { x: p + 4, y: y0 + p - 1, w: W - 2 * p - 4, size });
+    return h;
+  }
+
+  function render() {
+    if (!data) return;
+    const W = svgEl.clientWidth || 400, wide = W >= 600;
+    const svg = d3.select(svgEl); svg.selectAll('*').remove();
+    hatch(svg);
+    let y = 0;
+    y += formula(svg, y, W, wide) + (wide ? 10 : 16);
+    y += (wide ? waterfallWide : waterfallNarrow)(svg, y, W) + 18;
+    y += cards(svg, y, W, wide) + 14;
+    y += caution(svg, y, W);
+    svg.attr('viewBox', `0 0 ${W} ${Math.ceil(y + 1)}`).attr('height', Math.ceil(y + 1));
+    paint();
+  }
+
+  // Highlight the terms and bars the active choice fixes, and show its labels; no redraw.
+  function paint() {
+    const c = active && data.choices.find(d => d.key === active);
+    const svg = d3.select(svgEl).classed('focus', !!c);
+    svg.selectAll('.part').classed('on', function () { return !!c && c.on.includes(this.dataset.key); });
+    svg.selectAll('.card').classed('on', function () { return !!c && this.dataset.key === c.key; });
+    svg.selectAll('.lab').each(function () {
+      const alt = c && this.querySelector(`.alt[data-choice="${c.key}"]`);
+      d3.select(this).selectAll('.alt').attr('display', function () { return this === alt ? null : 'none'; });
+      d3.select(this).select('.rest').attr('display', alt ? 'none' : null);
+    });
+  }
+
+  function setActive(key) {
+    if (key === active) return;
+    active = key;
+    paint();
+    const c = active && data.choices.find(d => d.key === active);
+    detail.innerHTML = c ? `<b>${toHTML(c.title)}</b> (${c.links.map(l => l.text.split(':')[0]).join(', ')}). ${toHTML(c.detail)}` : toHTML(data.idle);
+    box.dataset.active = active || '';
+  }
+
+  linkBase = root.dataset.url.replace(/data\/[^/]*$/, '');
+  d3.json(root.dataset.url).then(d => {
+    data = d; detail.innerHTML = toHTML(data.idle);
+    new ResizeObserver(() => render()).observe(svgEl);
+    render(); box.dataset.ready = 'true';
+  }).catch(error => { detail.textContent = `Could not load figure: ${error.message}`; });
+})();
+</script>

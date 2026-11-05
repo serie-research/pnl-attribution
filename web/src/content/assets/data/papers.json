@@ -1,0 +1,586 @@
+{
+  "papers": [
+    {
+      "key": "brinsonMeasuringNonUSEquity1985",
+      "authors": "Gary P. Brinson; Nimrod Fachler",
+      "year": 1985,
+      "title": "Measuring non-U.S. equity portfolio performance",
+      "venue": "The Journal of Portfolio Management",
+      "url": "https://doi.org/10.3905/jpm.1985.409005",
+      "appears": [
+        {
+          "section": "2",
+          "as": "note"
+        },
+        {
+          "section": "2",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "brinsonDeterminantsPortfolioPerformance1986",
+      "authors": "Gary P. Brinson; L. Randolph Hood; Gilbert L. Beebower",
+      "year": 1986,
+      "title": "Determinants of Portfolio Performance",
+      "venue": "Financial Analysts Journal",
+      "url": "https://doi.org/10.2469/faj.v42.n4.39",
+      "appears": [
+        {
+          "section": "2",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "grinoldActivePortfolioManagement2000",
+      "authors": "Richard C. Grinold; Ronald N. Kahn",
+      "year": 2000,
+      "title": "Active Portfolio Management: A Quantitative Approach for Producing Superior Returns and Controlling Risk",
+      "venue": "McGraw-Hill",
+      "appears": [
+        {
+          "section": "1",
+          "as": "cite"
+        },
+        {
+          "section": "2",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "sharpeAssetAllocationManagement1992",
+      "authors": "William F. Sharpe",
+      "year": 1992,
+      "title": "Asset allocation: Management style and performance measurement",
+      "venue": "The Journal of Portfolio Management",
+      "url": "https://doi.org/10.3905/jpm.1992.409394",
+      "appears": [
+        {
+          "section": "2",
+          "as": "note"
+        },
+        {
+          "section": "2",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "paleologoElementsQuantitativeInvesting2025",
+      "authors": "Giuseppe A. Paleologo",
+      "year": 2025,
+      "title": "The Elements of Quantitative Investing",
+      "venue": "John Wiley & Sons",
+      "url": "https://www.wiley.com/en-us/the-elements-of-quantitative-investing-p-9781394265459",
+      "appears": [
+        {
+          "section": "1",
+          "as": "cite"
+        },
+        {
+          "section": "2",
+          "as": "cite"
+        },
+        {
+          "section": "2",
+          "as": "note"
+        }
+      ]
+    },
+    {
+      "key": "littermanHotSpotsHedges1996",
+      "authors": "Robert Litterman",
+      "year": 1996,
+      "title": "Hot Spots and Hedges",
+      "venue": "The Journal of Portfolio Management",
+      "url": "https://doi.org/10.3905/jpm.1996.052",
+      "appears": [
+        {
+          "section": "2",
+          "as": "note"
+        },
+        {
+          "section": "2",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "durinSignalwisePerformanceAttribution2014",
+      "authors": "Bruno Durin",
+      "year": 2014,
+      "title": "Signal-wise performance attribution for constrained portfolio optimisation",
+      "venue": "arXiv",
+      "url": "https://doi.org/10.48550/arXiv.1404.4798",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        },
+        {
+          "section": "3",
+          "as": "note"
+        },
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "isichenkoQuantitativePortfolioManagement2021",
+      "authors": "Michael Isichenko",
+      "year": 2021,
+      "title": "Quantitative portfolio management: The art and science of statistical arbitrage",
+      "venue": "John Wiley & Sons",
+      "url": "https://www.wiley.com/en-us/quantitative-portfolio-management-the-art-and-science-of-statistical-arbitrage-p-9781119821328",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "shapleyValueNpersonGames1953",
+      "authors": "L. S. Shapley",
+      "year": 1953,
+      "title": "A value for n-person games",
+      "venue": "In H. W. Kuhn and A. W. Tucker (eds.), Contributions to the Theory of Games II, Annals of Mathematics Studies 28, Princeton University Press, pp. 307–317",
+      "url": "https://doi.org/10.1515/9781400881970-018",
+      "appears": [
+        {
+          "section": "3",
+          "as": "note"
+        },
+        {
+          "section": "3",
+          "as": "cite"
+        },
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ],
+      "note": "The bargaining-procedure locator refers to RAND RM-670 (1951), pp. 12–13, rather than the 1953 chapter pagination."
+    },
+    {
+      "key": "kissellAlgorithmicTradingMethods2021",
+      "authors": "Robert Kissell",
+      "year": 2021,
+      "title": "Algorithmic Trading Methods: Applications Using Advanced Statistics, Optimization, and Machine Learning Techniques",
+      "venue": "Academic Press",
+      "appears": [
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "lipovetskyAnalysisRegressionGame2001",
+      "authors": "Stan Lipovetsky; Michael Conklin",
+      "year": 2001,
+      "title": "Analysis of regression in game theory approach",
+      "venue": "Applied Stochastic Models in Business and Industry",
+      "url": "https://doi.org/10.1002/asmb.446",
+      "appears": [
+        {
+          "section": "4",
+          "as": "note"
+        },
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "owenSobolIndicesShapley2014",
+      "authors": "Art B. Owen",
+      "year": 2014,
+      "title": "Sobol' Indices and Shapley Value",
+      "venue": "SIAM/ASA Journal on Uncertainty Quantification",
+      "url": "https://doi.org/10.1137/130936233",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "lundbergUnifiedApproachInterpreting2017",
+      "authors": "Scott Lundberg; Su-In Lee",
+      "year": 2017,
+      "title": "A Unified Approach to Interpreting Model Predictions",
+      "venue": "arXiv",
+      "url": "https://doi.org/10.48550/arXiv.1705.07874",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        },
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "covertUnderstandingGlobalFeature2020",
+      "authors": "Ian Covert; Scott Lundberg; Su-In Lee",
+      "year": 2020,
+      "title": "Understanding Global Feature Contributions With Additive Importance Measures",
+      "venue": "arXiv",
+      "url": "https://doi.org/10.48550/arXiv.2004.00668",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        },
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "barberControllingFalseDiscovery2015",
+      "authors": "Rina Foygel Barber; Emmanuel J. Candès",
+      "year": 2015,
+      "title": "Controlling the false discovery rate via knockoffs",
+      "venue": "The Annals of Statistics",
+      "url": "https://doi.org/10.1214/15-AOS1337",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "melouxDeadSalmonsAI2025",
+      "authors": "Maxime Méloux; Giada Dirupo; François Portet; Maxime Peyrard",
+      "year": 2025,
+      "title": "The Dead Salmons of AI Interpretability",
+      "venue": "arXiv",
+      "url": "https://doi.org/10.48550/arXiv.2512.18792",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "menkveldHighFrequencyTrading2013",
+      "authors": "Albert J. Menkveld",
+      "year": 2013,
+      "title": "High frequency trading and the new market makers",
+      "venue": "Journal of Financial Markets",
+      "url": "https://doi.org/10.1016/j.finmar.2013.06.006",
+      "appears": [
+        {
+          "section": "2",
+          "as": "note"
+        },
+        {
+          "section": "2",
+          "as": "cite"
+        },
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ],
+      "note": "Page locators refer to the 2011 Tinbergen discussion paper TI 11-076/2/DSF 21, rather than the journal pagination."
+    },
+    {
+      "key": "gueantDealingInventoryRisk2013",
+      "authors": "Olivier Guéant; Charles-Albert Lehalle; Joaquin Fernandez-Tapia",
+      "year": 2013,
+      "title": "Dealing with the inventory risk: a solution to the market making problem",
+      "venue": "Mathematics and Financial Economics",
+      "url": "https://doi.org/10.1007/s11579-012-0087-0",
+      "appears": [
+        {
+          "section": "2",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "peroldImplementationShortfallPaper1988",
+      "authors": "André F. Perold",
+      "year": 1988,
+      "title": "The implementation shortfall: Paper versus reality",
+      "venue": "The Journal of Portfolio Management",
+      "url": "https://doi.org/10.3905/jpm.1988.409150",
+      "appears": [
+        {
+          "section": "2",
+          "as": "cite"
+        },
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "lehalleIncorporatingSignalsOptimal2019",
+      "authors": "Charles-Albert Lehalle; Eyal Neuman",
+      "year": 2019,
+      "title": "Incorporating signals into optimal trading",
+      "venue": "Finance and Stochastics",
+      "url": "https://doi.org/10.1007/s00780-019-00382-7",
+      "appears": [
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ],
+      "note": "The equation and page locators refer to arXiv:1704.00847v3, rather than the journal pagination."
+    },
+    {
+      "key": "gueantReinforcementLearningMethods2023",
+      "authors": "Olivier Guéant",
+      "year": 2023,
+      "title": "Reinforcement learning methods in algorithmic trading",
+      "venue": "In A. Capponi and C.-A. Lehalle (eds.), Machine Learning and Data Sciences for Financial Markets: A Guide to Contemporary Practices, Cambridge University Press, ch. 11, pp. 182–200",
+      "url": "https://doi.org/10.1017/9781009028943",
+      "appears": [
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "bouchaudTradesQuotesPrices2018",
+      "authors": "Jean-Philippe Bouchaud; Julius Bonart; Jonathan Donier; Martin Gould",
+      "year": 2018,
+      "title": "Trades, quotes and prices: financial markets under the microscope",
+      "venue": "Cambridge University Press",
+      "url": "https://doi.org/10.1017/9781316659335",
+      "appears": [
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "castroPolynomialCalculationShapley2009",
+      "authors": "Javier Castro; Daniel Gómez; Juan Tejada",
+      "year": 2009,
+      "title": "Polynomial calculation of the Shapley value based on sampling",
+      "venue": "Computers & Operations Research",
+      "url": "https://doi.org/10.1016/j.cor.2008.04.004",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "malekiBoundingEstimationError2013",
+      "authors": "Sasan Maleki; Long Tran-Thanh; Greg Hines; Talal Rahwan; Alex Rogers",
+      "year": 2013,
+      "title": "Bounding the Estimation Error of Sampling-based Shapley Value Approximation",
+      "venue": "arXiv",
+      "url": "https://doi.org/10.48550/arXiv.1306.4265",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "mitchellSamplingPermutationsShapley2022",
+      "authors": "Rory Mitchell; Joshua Cooper; Eibe Frank; Geoffrey Holmes",
+      "year": 2022,
+      "title": "Sampling Permutations for Shapley Value Estimation",
+      "venue": "Journal of Machine Learning Research",
+      "url": "https://jmlr.org/papers/v23/21-0439.html",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "covertImprovingKernelSHAPPractical2021",
+      "authors": "Ian Covert; Su-In Lee",
+      "year": 2021,
+      "title": "Improving KernelSHAP: Practical Shapley Value Estimation Using Linear Regression",
+      "venue": "AISTATS (PMLR 130)",
+      "url": "https://proceedings.mlr.press/v130/covert21a.html",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "muscoProvablyAccurateShapley2025",
+      "authors": "Christopher Musco; R. Teal Witter",
+      "year": 2025,
+      "title": "Provably Accurate Shapley Value Estimation via Leverage Score Sampling",
+      "venue": "ICLR",
+      "url": "https://doi.org/10.48550/arXiv.2410.01917",
+      "appears": [
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "jethaniFastSHAPRealTimeShapley2022",
+      "authors": "Neil Jethani; Mukund Sudarshan; Ian Covert; Su-In Lee; Rajesh Ranganath",
+      "year": 2022,
+      "title": "FastSHAP: Real-Time Shapley Value Estimation",
+      "venue": "ICLR",
+      "url": "https://doi.org/10.48550/arXiv.2107.07436",
+      "appears": [
+        {
+          "section": "5",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "owenValuesGamesPriori1977",
+      "authors": "Guillermo Owen",
+      "year": 1977,
+      "title": "Values of Games with a Priori Unions",
+      "venue": "In R. Henn and O. Moeschlin (eds.), Mathematical Economics and Game Theory, Lecture Notes in Economics and Mathematical Systems 141, Springer, pp. 76–88",
+      "url": "https://doi.org/10.1007/978-3-642-45494-3_7",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "grinoldAttributionPerformanceHoldings1998",
+      "authors": "Richard C. Grinold; K. Easton",
+      "year": 1998,
+      "title": "Attribution of performance and holdings",
+      "venue": "In W. T. Ziemba and J. M. Mulvey (eds.), Worldwide Asset and Liability Modeling, Cambridge University Press, pp. 87–113",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "garleanuDynamicTradingPredictable2013",
+      "authors": "Nicolae Gârleanu; Lasse Heje Pedersen",
+      "year": 2013,
+      "title": "Dynamic Trading with Predictable Returns and Transaction Costs",
+      "venue": "The Journal of Finance",
+      "url": "https://doi.org/10.1111/jofi.12080",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "covertExplainingRemovingUnified2021",
+      "authors": "Ian Covert; Scott Lundberg; Su-In Lee",
+      "year": 2021,
+      "title": "Explaining by Removing: A Unified Framework for Model Explanation",
+      "venue": "Journal of Machine Learning Research",
+      "url": "https://arxiv.org/abs/2011.14878",
+      "appears": [
+        {
+          "section": "3",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "janzingFeatureRelevanceQuantification2020",
+      "authors": "Dominik Janzing; Lenon Minorics; Patrick Blöbaum",
+      "year": 2020,
+      "title": "Feature relevance quantification in explainable AI: A causal problem",
+      "venue": "Proceedings of AISTATS 2020",
+      "url": "https://arxiv.org/abs/1910.13413",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "chenTrueModelTrue2020",
+      "authors": "Hugh Chen; Joseph D. Janizek; Scott Lundberg; Su-In Lee",
+      "year": 2020,
+      "title": "True to the Model or True to the Data?",
+      "venue": "arXiv",
+      "url": "https://doi.org/10.48550/arXiv.2006.16234",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "sundararajanManyShapleyValues2020",
+      "authors": "Mukund Sundararajan; Amir Najmi",
+      "year": 2020,
+      "title": "The many Shapley values for model explanation",
+      "venue": "Proceedings of ICML 2020",
+      "url": "https://arxiv.org/abs/1908.08474",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "candesPanningGoldModelX2018",
+      "authors": "Emmanuel Candès; Yingying Fan; Lucas Janson; Jinchi Lv",
+      "year": 2018,
+      "title": "Panning for Gold: ‘Model-X’ Knockoffs for High Dimensional Controlled Variable Selection",
+      "venue": "Journal of the Royal Statistical Society Series B: Statistical Methodology",
+      "url": "https://doi.org/10.1111/rssb.12265",
+      "appears": [
+        {
+          "section": "4",
+          "as": "cite"
+        }
+      ]
+    },
+    {
+      "key": "grompingEstimatorsRelativeImportance2007",
+      "authors": "Ulrike Grömping",
+      "year": 2007,
+      "title": "Estimators of Relative Importance in Linear Regression Based on Variance Decomposition",
+      "venue": "The American Statistician",
+      "url": "https://doi.org/10.1198/000313007X188252",
+      "appears": [
+        {
+          "section": "4",
+          "as": "note"
+        }
+      ]
+    }
+  ]
+}

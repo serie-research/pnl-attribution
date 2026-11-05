@@ -1,0 +1,54 @@
+{
+  "source": "Sections 3.1-3.5 and 4 of the attribution page. Run counts restate 3.1 (one run per signal, repeated after each risk-target update), 3.2 (v(N) and v(N without k)) and 3.4 (2^K coalition values, 2^K - 1 backtests; sampled orders or signal families with many signals), as in i3. Sums restate 3.1 (residual kept as a separate term), 3.2 (contributions need not sum), 3.3 (Eq. 9; constraint portfolios, Eq. 17; dynamic model with constraints on the next trade only, an approximation, p. 7; combinatorial and non-convex constraints outside the treatment, pp. 7, 14), 3.4 (shares sum to v(N) of the coalition game) and 4.2 (shares sum to v(N) - v(empty set) of the chosen value). Ids are the headings' slugs.",
+  "questions": [
+    { "key": "q1", "label": "Question 1", "text": "Is the policy a known convex optimiser with a quadratic risk or cost term whose optimality equations are available?" },
+    { "key": "q2", "label": "Question 2", "text": "Can we rerun the policy with signals removed?" }
+  ],
+  "link": { "answer": "No, or not convex", "text": "rules, black boxes, learned policies; round lots or a minimum trade size" },
+  "groups": [
+    { "key": "static", "q": "q1", "answer": "Yes, static", "family": "inside", "policies": ["static"], "methods": ["durin", "ge"] },
+    { "key": "dynamic", "q": "q1", "answer": "Yes, dynamic", "family": "inside", "policies": ["dynamic"], "methods": ["durin-dyn"] },
+    { "key": "rerun", "q": "q2", "answer": "Yes", "family": "rerun", "policies": ["nonconvex", "blackbox"], "methods": ["proxy", "loo", "shapley"] },
+    { "key": "record", "q": "q2", "answer": "No", "family": "record", "policies": ["record"], "methods": ["stat"] }
+  ],
+  "policies": [
+    { "key": "static", "title": "Static optimiser", "text": "quadratic risk or cost term, convex constraints",
+      "id": "33-using-the-optimisers-internal-equations", "sec": "3.3",
+      "detail": "The split is read from the optimality equations at the joint optimum. Durin's split needs no rerun, and the signal positions sum to the actual position. Grinold–Easton also needs no rerun. It keeps each binding constraint as a separate portfolio." },
+    { "key": "dynamic", "title": "Dynamic optimiser", "text": "Gârleanu–Pedersen: each signal's forecast decays at its own rate",
+      "id": "33-using-the-optimisers-internal-equations", "sec": "3.3",
+      "detail": "Durin's recursion applies with modified forecasts and matrices, without a rerun. Durin imposes constraints on the next trade only and keeps the unconstrained value function. With constraints, this treatment is an approximation." },
+    { "key": "nonconvex", "title": "Optimiser with round lots or a minimum trade size", "text": "combinatorial or non-convex constraints: outside Durin's treatment",
+      "id": "33-using-the-optimisers-internal-equations", "sec": "3.3",
+      "detail": "These constraints are combinatorial or non-convex, so Durin's treatment does not apply. If the optimiser can be rerun with signals removed, stand-alone proxies, leave-one-out or coalition Shapley apply." },
+    { "key": "blackbox", "title": "Rule, black box or learned policy", "text": "no optimality equations available",
+      "id": "53-state-indicators-and-opaque-policies", "sec": "5.3",
+      "detail": "The policy supplies no optimality equations. If it can be rerun with signals removed, stand-alone proxies, leave-one-out or coalition Shapley apply. Section 5.3 proposes later work on learned policies." },
+    { "key": "record", "title": "Policy we cannot rerun", "text": "only the P&L record and the indicators",
+      "id": "4-correlated-indicators-and-the-value-of-a-subset", "sec": "4",
+      "detail": "Only the P&L record and the indicators remain. Statistical attribution gives shares of a model's prediction or of explained variance, not of realised P&L. Section 5.3 proposes a surrogate route." }
+  ],
+  "methods": [
+    { "key": "durin", "title": "Durin (2014)", "sec": "3.3", "id": "33-using-the-optimisers-internal-equations",
+      "text": "one set of effective matrices *!{Q}_{t}*, *!{P}_{t}* for every signal, from the multipliers at the joint optimum",
+      "runs": "none", "sum": "exact: *x_{t}* = Σ*_{k}* *x_{t}^{k}*" },
+    { "key": "ge", "title": "Grinold–Easton", "sec": "3.3", "id": "33-using-the-optimisers-internal-equations",
+      "text": "each binding constraint is a separate source with its own portfolio",
+      "runs": "none", "sum": "exact, with one portfolio per constraint" },
+    { "key": "durin-dyn", "title": "Durin, dynamic model", "sec": "3.3", "id": "33-using-the-optimisers-internal-equations",
+      "text": "modified forecasts and matrices; constraints on the next trade only",
+      "runs": "none", "sum": "exact; with constraints, an approximation" },
+    { "key": "proxy", "title": "Stand-alone proxies", "sec": "3.1", "id": "31-stand-alone-portfolios-as-proxies",
+      "text": "one signal at a time, own risk target; NNLS fit, iterated on the targets",
+      "runs": "*K* per iteration", "sum": "residual kept separate" },
+    { "key": "loo", "title": "Leave-one-out", "sec": "3.2", "id": "32-removing-one-signal-from-the-full-portfolio",
+      "text": "*v*(*N*) − *v*(*N*\\{*k*}) for each signal",
+      "runs": "*K* + 1", "sum": "need not sum to the total" },
+    { "key": "shapley", "title": "Coalition Shapley", "sec": "3.4", "id": "34-sharing-value-across-coalitions",
+      "text": "marginal contributions averaged over coalitions; with many signals, sampled orders or signal families",
+      "runs": "2*^{K}* coalition values, or a sampled budget", "sum": "*v*(*N*) of its own game" },
+    { "key": "stat", "title": "Statistical attribution", "sec": "4", "id": "4-correlated-indicators-and-the-value-of-a-subset",
+      "text": "shares of a model's prediction or of explained variance: Shapley *R*^{2}, SHAP, SAGE",
+      "runs": "none: model fits on the record", "sum": "the chosen value, not realised P&L" }
+  ]
+}

@@ -1,0 +1,527 @@
+---
+import QRCode from 'qrcode';
+import katex from 'katex';
+import HtmlEmbed from '../components/HtmlEmbed.astro';
+import ThemeInit from '../components/ThemeInit.astro';
+import '../styles/session.css';
+import '../styles/embeds.css';
+import 'katex/dist/katex.min.css';
+import { inlineParts } from '../scripts/slides.js';
+// The web slide deck: a fixed 16:9 stage of 1920 × 1080 units scaled to the window
+// (../scripts/slides.js). Every length on a slide is a multiple of --u, the window
+// pixels per unit, so a slide looks the same at any window size. Figures are the
+// page's embeds, laid out at a fixed width and scaled into the room the text leaves.
+const { session, title, slides } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const origin = (import.meta.env.PUBLIC_SITE_ORIGIN || 'https://attribution.serie-research.dev').replace(/\/+$/, '');
+const pageUrl = `${origin}${base}${session}/`;
+const shownUrl = pageUrl.replace(/^https:\/\//, '').replace(/\/$/, '');
+// A 4-module quiet zone on a white background keeps the code readable in dark mode too.
+const qr = await QRCode.toString(pageUrl, {
+  type: 'svg', errorCorrectionLevel: 'M', margin: 4,
+  color: { dark: '#000000', light: '#ffffff' },
+});
+const formula = (tex: string) => katex.renderToString(tex, { displayMode: true, throwOnError: true });
+// A line of slide text with its inline formulas ($…$) rendered; the rest is escaped.
+// A sign before an amount (−€0.04, +€0.01) never ends a line: a word joiner follows it.
+const escape = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/([−+±≤])(?=[€\d])/g, '$1\u2060');
+const inline = (text: string) => inlineParts(text).map(p => (p.math ? katex.renderToString(p.text, { throwOnError: true }) : escape(p.text))).join('');
+// Plain text of a line for the speaker view: formulas keep their TeX.
+const plain = (text: string) => inlineParts(text).map(p => p.text).join('');
+// What the speaker view reads: titles, text, figure titles and notes. `<` is escaped so
+// the JSON cannot close its script element.
+const speakerData = JSON.stringify(slides.map((s: any) => ({
+  kind: s.kind, title: s.title, bullets: s.bullets?.map(plain) ?? null, number: s.number ?? null,
+  formula: s.formula ?? null, takeaway: s.takeaway ? plain(s.takeaway) : null, figure: s.embed?.title ?? null, notes: s.notes,
+}))).replace(/</g, '\\u003c');
+const count = slides.length;
+// Width at which each figure is laid out before it is scaled to its room, in CSS
+// pixels: wide enough for its panels to sit side by side, so that it is not too tall.
+const LAYOUT_WIDTH: Record<string, number> = {
+  'w-i0-route': 800, 'w-i1-attribution': 1000, 'w-i4-shared-information': 1100, 'd3-f7-correlated': 700,
+  'w-i3-method-map': 1100, 'd3-f6-coalitions': 700, 'd3-f13-pnl-paths': 1300, 'd3-f5-signal-attribution': 1300,
+  'w-i5-mm-ledger': 900, 'w-citation-graph': 1300,
+};
+---
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex" /><title>{title} · Slides</title>
+<ThemeInit /></head>
+<body class="deck">
+<div class="deck-viewport">
+  <div class="deck-stage" data-stage>
+    {slides.map((s: any, i: number) => (
+      <section class:list={['slide', `slide--${s.kind}`, s.embed ? 'slide--figure' : 'slide--plain']}
+        data-index={i} data-figure={s.figure} aria-roledescription="slide" aria-label={`${i + 1} of ${count}`}>
+        {s.kind === 'title' && (
+          <div class="cover">
+            <header class="cover__text">
+              <h1 class="cover__title">{s.title}</h1>
+              <p class="cover__subtitle">{s.subtitle}</p>
+              <p class="cover__byline">{s.author} · {s.date}</p>
+            </header>
+            <figure class="qr"><div class="qr__code" role="img" aria-label={`QR code for ${pageUrl}`} set:html={qr} /><figcaption><a href={pageUrl}>{shownUrl}</a></figcaption></figure>
+          </div>
+        )}
+        {s.kind === 'closing' && (
+          <div class="cover">
+            <header class="cover__text">
+              <h2 class="slide__title">{s.title}</h2>
+              <p class="cover__url"><a href={pageUrl}>{shownUrl}</a></p>
+            </header>
+            <figure class="qr"><div class="qr__code" role="img" aria-label={`QR code for ${pageUrl}`} set:html={qr} /></figure>
+          </div>
+        )}
+        {s.kind === 'content' && <h2 class="slide__title">{s.title}</h2>}
+        {s.kind === 'content' && (
+          <div class="slide__body">
+            <div class="slide__text">
+              <ul class="slide__bullets">{s.bullets.map((b: string) => <li set:html={inline(b)} />)}</ul>
+              {s.formula && <div class="slide__formula" set:html={formula(s.formula)} />}
+              {s.number && <p class="slide__number"><span class="slide__value">{s.number.value}</span><span class="slide__label">{s.number.label}</span></p>}
+              <p class="slide__takeaway" set:html={inline(s.takeaway)} />
+            </div>
+            {s.embed && <div class="slide__figure" data-layout-width={LAYOUT_WIDTH[s.figure] ?? 1100}><HtmlEmbed src={s.embed.src} data={s.embed.data} title={s.embed.title} /></div>}
+          </div>
+        )}
+        {s.kind === 'content'
+          ? <a class="slide__source" href={`${base}${session}/#${s.section}`} target="_blank" rel="noopener">{s.source}</a>
+          : <a class="slide__page" href={`${base}${session}/#${s.section}`} target="_blank" rel="noopener">Page {s.sectionLabel}</a>}
+      </section>
+    ))}
+    <canvas class="ink" aria-hidden="true"></canvas>
+    <p class="deck-counter" aria-live="polite" data-pos></p>
+  </div>
+</div>
+<nav class="tools" aria-label="Slides">
+  <button type="button" data-prev aria-label="Previous slide" title="Previous slide (←)">←</button>
+  <button type="button" data-next aria-label="Next slide" title="Next slide (→)">→</button>
+  <span class="tools__ink" role="group" aria-label="Ink"><button type="button" data-tool="pen" aria-pressed="false" aria-label="Pen (P)" title="Pen (P): the stylus always writes; with the button pressed, the mouse writes too"><svg class="tools__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 0l.5.5a2.1 2.1 0 0 1 0 3L8.5 19z"/><path d="M13.5 7l3.5 3.5"/><path d="M4 20l4.5-1"/></svg></button><button type="button" data-tool="highlighter" aria-pressed="false" aria-label="Highlighter (H)" title="Highlighter (H)"><svg class="tools__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 15.5l-3-3 8.5-8.5 3 3z"/><path d="M6.5 12.5L5 17l2 2 4.5-1.5"/><path d="M5 19l-2 2h5"/><path d="M12 22h9" class="tools__icon-mark"/></svg></button><button type="button" data-tool="eraser" aria-pressed="false" aria-label="Eraser (E)" title="Eraser (E): removes the strokes it touches. A pen's eraser end erases too."><svg class="tools__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 20L3.7 15.2a1.8 1.8 0 0 1 0-2.5l9-9a1.8 1.8 0 0 1 2.5 0l5.1 5.1a1.8 1.8 0 0 1 0 2.5L12 19.6"/><path d="M8.2 8.2l7.6 7.6"/><path d="M8.5 20H20"/></svg></button><button type="button" data-colour aria-label="Pen colour (C)" title="Pen colour (C)">●</button><button type="button" data-undo aria-label="Undo (Z)" title="Undo (Z)">↶</button><button type="button" data-clear aria-label="Clear this slide's ink" title="Clear this slide's ink">✕</button></span>
+  <button type="button" class="tools__theme" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme"><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button>
+  <button type="button" data-speaker aria-label="Speaker view (N)" title="Speaker view in a second window (N)"><svg class="tools__icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M7 9h10M7 12.5h6M9 21h6M12 17v4"/></svg></button>
+</nav>
+<script type="application/json" id="slides-data" set:html={speakerData} />
+<script>
+  import { begin, clear, createInk, draws, erase, erases, extend, holdsTouch, strokesOf, undo } from '../scripts/ink.js';
+  import { edgeAction, figureLayout, hashOf, indexFromHash, keyAction, STAGE, stepTo, swipeAction } from '../scripts/slides.js';
+  import { themeToggle } from '../scripts/theme.js';
+
+  type SlideData = { kind: string; title: string; bullets: string[] | null; number: { value: string; label: string } | null; formula: string | null; takeaway: string | null; figure: string | null; notes: string[] };
+  const dataNode = document.getElementById('slides-data')!;
+  const data: SlideData[] = JSON.parse(dataNode.textContent!);
+  dataNode.remove();
+  const stage = document.querySelector<HTMLElement>('[data-stage]')!;
+  const slides = [...stage.querySelectorAll<HTMLElement>('.slide')];
+  const pos = document.querySelector<HTMLElement>('[data-pos]')!;
+  const speaker = new URLSearchParams(location.search).has('speaker');
+  const unit = () => stage.clientWidth / STAGE.width;
+
+  // Figures. Each embed is laid out at a fixed width (its layout is tuned for the page's
+  // column, and its text is in pixels) and scaled into the room beside the text column,
+  // below the title (../scripts/slides.js).
+  const GAP = 48, MARGIN = 36, TEXT_COLUMN = 860;
+  const LAYOUTS = ['slide--side'];
+  const fitFigure = (slide: HTMLElement) => {
+    const box = slide.querySelector<HTMLElement>('.slide__figure');
+    const figure = box?.querySelector<HTMLElement>(':scope > figure') ?? null;
+    if (!box || !figure) return;
+    const u = unit(), width = Number(box.dataset.layoutWidth);
+    if (figure.style.width !== `${width}px`) figure.style.width = `${width}px`;
+    slide.classList.remove(...LAYOUTS);
+    const style = getComputedStyle(slide);
+    const inner = {
+      width: slide.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+      height: slide.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom),
+    };
+    const title = slide.querySelector<HTMLElement>('.slide__title')!, text = slide.querySelector<HTMLElement>('.slide__text');
+    const below = inner.height - title.offsetHeight - MARGIN * u;
+    const fit = figureLayout({
+      width, height: figure.offsetHeight,
+      rooms: text
+        ? { side: { width: inner.width - (TEXT_COLUMN + GAP) * u, height: below } }
+        : { stack: { width: inner.width, height: below } },
+    });
+    if (fit.layout !== 'stack') slide.classList.add(`slide--${fit.layout}`);
+    slide.dataset.layout = fit.layout;
+    const left = Math.max(0, (box.clientWidth - width * fit.scale) / 2);
+    const top = Math.max(0, (box.clientHeight - figure.offsetHeight * fit.scale) / 2);
+    figure.style.transform = `translate(${left}px, ${top}px) scale(${fit.scale})`;
+    box.dataset.scale = fit.scale.toFixed(3);
+  };
+  const fitAll = () => slides.forEach(fitFigure);
+  const sizes = new ResizeObserver(entries => { for (const e of entries) fitFigure((e.target as HTMLElement).closest<HTMLElement>('.slide')!); });
+  for (const f of stage.querySelectorAll<HTMLElement>('.slide__figure > figure')) sizes.observe(f);
+
+  // Links on a slide (the page link, a figure's link to a section) open the page in
+  // another tab: the deck stays where it is.
+  stage.addEventListener('click', e => {
+    const link = (e.target as Element).closest('a');
+    if (!link || e.defaultPrevented) return;
+    const href = link.getAttribute('href') || link.getAttribute('xlink:href') || '';
+    const url = new URL(href, location.href);
+    if (url.origin === location.origin && url.pathname === location.pathname && url.hash) url.pathname = new URL('../', location.href).pathname;
+    e.preventDefault();
+    window.open(url.href, '_blank', 'noopener');
+  });
+
+  // Navigation. The hash carries the slide number (#1 is the title slide). The speaker
+  // view, a second window, follows the main one and can drive it.
+  let index = -1;
+  const channel = 'BroadcastChannel' in window ? new BroadcastChannel(`slides:${location.pathname}`) : null;
+  const go = (i: number, { broadcast = true } = {}) => {
+    i = stepTo(i, 0, slides.length);
+    if (i !== index) {
+      slides[index]?.removeAttribute('data-active');
+      index = i;
+      slides[i].setAttribute('data-active', '');
+      request(true);
+    }
+    pos.textContent = `${i + 1} / ${slides.length}`;
+    history.replaceState(null, '', location.pathname + location.search + hashOf(i));
+    if (speaker) showSpeaker();
+    if (broadcast) channel?.postMessage({ type: 'go', index: i });
+  };
+  const step = (k: number) => go(stepTo(index, k, slides.length));
+  channel?.addEventListener('message', e => {
+    if (e.data?.type === 'go') go(e.data.index, { broadcast: false });
+    if (e.data?.type === 'hello' && !speaker) channel.postMessage({ type: 'go', index });
+  });
+  window.addEventListener('hashchange', () => go(indexFromHash(location.hash, slides.length)));
+  document.querySelector('[data-prev]')!.addEventListener('click', () => step(-1));
+  document.querySelector('[data-next]')!.addEventListener('click', () => step(1));
+
+  let speakerWindow: Window | null = null;
+  const toggleSpeaker = () => {
+    if (speaker) { window.close(); return; }
+    if (speakerWindow && !speakerWindow.closed) { speakerWindow.close(); speakerWindow = null; return; }
+    speakerWindow = window.open(`${location.pathname}?speaker${hashOf(index)}`, 'slides-speaker', 'popup,width=1280,height=760');
+  };
+  document.querySelector('[data-speaker]')!.addEventListener('click', toggleSpeaker);
+
+  window.addEventListener('keydown', e => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    const target = e.target as Element;
+    if (target.closest('input, select, textarea, [contenteditable]')) return;
+    const tools: Record<string, Tool> = { p: 'pen', h: 'highlighter', e: 'eraser' };
+    const key = e.key.toLowerCase();
+    if (tools[key]) choose(tools[key]);
+    if (key === 'c') nextColour();
+    if (key === 'z') undoInk();
+    if (key === 'n') toggleSpeaker();
+    if (key === 'f' && !speaker) { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
+    if (e.key === 'Escape') arm(false);
+    // Space presses a focused button or link; the arrows still change slide after one was tapped.
+    if (e.key === ' ' && target.closest('button, summary, a')) return;
+    const action = keyAction(e.key, e.shiftKey);
+    if (action === null) return;
+    if (action === 'first') go(0); else if (action === 'last') go(slides.length - 1); else step(action);
+    e.preventDefault();
+  });
+
+  // A click on the left or right edge of a slide, outside its figure and controls,
+  // moves back or forward; so does a finger swipe (not the stylus, which writes).
+  const CONTROLS = 'a, button, input, select, textarea, label, summary, [role="slider"], [role="button"]';
+  stage.addEventListener('click', e => {
+    const target = e.target as Element;
+    if (e.defaultPrevented || target.closest(CONTROLS) || target.closest('.slide__figure')) return;
+    const r = stage.getBoundingClientRect();
+    const k = edgeAction(e.clientX - r.left, r.width);
+    if (k) step(k);
+  });
+  let swipe: { x: number; y: number } | null = null;
+  const touchTypes = (e: TouchEvent) => [...e.changedTouches].map(t => (t as Touch & { touchType?: string }).touchType ?? '');
+  stage.addEventListener('touchstart', e => {
+    const finger = e.touches.length === 1 && !touchTypes(e).includes('stylus') && pointer === null;
+    swipe = finger && !(e.target as Element).closest(CONTROLS) ? { x: e.touches[0].clientX, y: e.touches[0].clientY } : null;
+  }, { passive: true });
+  stage.addEventListener('touchend', e => {
+    if (!swipe || e.changedTouches.length !== 1) { swipe = null; return; }
+    const t = e.changedTouches[0], k = swipeAction(t.clientX - swipe.x, t.clientY - swipe.y);
+    swipe = null;
+    if (k) step(k);
+  });
+
+  // Ink (the model is ../scripts/ink.js). A stylus always writes on the current slide
+  // with the selected tool; a finger presses controls and swipes; the mouse writes only
+  // while a tool is armed. Strokes are kept per slide in ink units, a fixed fraction of
+  // the stage (one pixel of a 1280-pixel-wide stage), so they stay in place and keep
+  // their width relative to the slide when the window changes size.
+  type Tool = 'pen' | 'highlighter' | 'eraser';
+  type Stroke = ReturnType<typeof begin>;
+  const ink = createInk();
+  const COLOURS = ['red', 'blue', 'ink'];
+  const ERASER_RADIUS = 10;
+  const inkUnit = () => stage.clientWidth / 1280;
+  const canvas = stage.querySelector<HTMLCanvasElement>('canvas.ink')!;
+  const g = canvas.getContext('2d', { desynchronized: true })!;
+  const palette: Record<string, string> = {};
+  let tool: Tool = 'pen', colour = 0, armed = false;
+  let stroke: Stroke = null, swallowClick = false;
+  // The pointer that writes or erases; other pointers (a resting palm) are ignored.
+  let pointer: number | null = null;
+  let painted = 0, frame = 0, full = true;
+  let box = { left: 0, top: 0, u: 1 };
+  const active = () => slides[index];
+
+  const readPalette = () => {
+    const style = getComputedStyle(document.documentElement);
+    for (const name of [...COLOURS, 'highlighter']) palette[name] = style.getPropertyValue(`--ink-${name}`).trim();
+    document.querySelector<HTMLElement>('[data-colour]')!.style.color = palette[COLOURS[colour]];
+  };
+  const fitCanvas = () => {
+    const ratio = devicePixelRatio || 1;
+    canvas.width = Math.round(canvas.clientWidth * ratio);
+    canvas.height = Math.round(canvas.clientHeight * ratio);
+    full = true;
+  };
+  // Smoothed path: quadratic curves through the midpoints of consecutive points.
+  const mid = (p: number[], a: number, b: number) => [(p[3 * a] + p[3 * b]) / 2, (p[3 * a + 1] + p[3 * b + 1]) / 2];
+  function segment(p: number[], i: number, last: boolean) {
+    const [x0, y0] = i > 1 ? mid(p, i - 2, i - 1) : [p[0], p[1]];
+    const [x1, y1] = last ? [p[3 * i], p[3 * i + 1]] : mid(p, i - 1, i);
+    g.lineWidth = (p[3 * (i - 1) + 2] + p[3 * i + 2]) / 2;
+    g.beginPath();
+    g.moveTo(x0, y0);
+    g.quadraticCurveTo(p[3 * (i - 1)], p[3 * (i - 1) + 1], x1, y1);
+    g.stroke();
+  }
+  function paint(s: NonNullable<Stroke>, from: number, done: boolean) {
+    const p = s.points, n = p.length / 3;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    if (s.tool === 'highlighter') {
+      g.globalAlpha = 0.35; g.strokeStyle = palette.highlighter; g.lineWidth = p[2];
+      g.beginPath(); g.moveTo(p[0], p[1]);
+      for (let i = 1; i < n; i++) { const [x, y] = i < n - 1 ? mid(p, i, i + 1) : [p[3 * i], p[3 * i + 1]]; g.quadraticCurveTo(p[3 * i], p[3 * i + 1], x, y); }
+      g.stroke(); g.globalAlpha = 1;
+      return;
+    }
+    g.strokeStyle = g.fillStyle = palette[s.colour];
+    if (n === 1) { g.beginPath(); g.arc(p[0], p[1], p[2] / 2, 0, 2 * Math.PI); g.fill(); return; }
+    for (let i = Math.max(1, from); i < n; i++) segment(p, i, done && i === n - 1);
+  }
+  function draw() {
+    frame = 0;
+    const slide = active(), k = (devicePixelRatio || 1) * inkUnit();
+    if (!slide) return;
+    g.setTransform(k, 0, 0, k, 0, 0);
+    if (full || stroke?.tool === 'highlighter') {
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height); g.restore();
+      for (const s of strokesOf(ink, slide)) if (s !== stroke) paint(s, 0, true);
+      if (stroke) paint(stroke, 0, false);
+      full = false;
+    } else if (stroke) paint(stroke, painted, false);
+    if (stroke) painted = stroke.points.length / 3;
+  }
+  function request(all = false) { full ||= all; if (!frame) frame = requestAnimationFrame(draw); }
+
+  const sample = (e: PointerEvent) => ({ pointerType: e.pointerType, pressure: e.pressure, x: (e.clientX - box.left) / box.u, y: (e.clientY - box.top) / box.u });
+  stage.addEventListener('pointerdown', e => {
+    if (pointer !== null || !draws(e.pointerType, armed) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    pointer = e.pointerId;
+    const r = stage.getBoundingClientRect();
+    box = { left: r.left, top: r.top, u: inkUnit() };
+    const s = sample(e);
+    // A pen's eraser end erases whatever tool is selected.
+    if (erases(tool, e.pointerType, e.buttons)) { if (erase(ink, active(), s.x, s.y, ERASER_RADIUS)) request(true); }
+    else { stroke = begin(ink, active(), s, { tool, colour: COLOURS[colour] }); painted = 0; request(); }
+    stage.setPointerCapture(e.pointerId);
+    swallowClick = true;
+    e.preventDefault(); e.stopPropagation();
+  }, { capture: true });
+  stage.addEventListener('pointermove', e => {
+    if (e.pointerId !== pointer) return;
+    const events = e.getCoalescedEvents?.().length ? e.getCoalescedEvents() : [e];
+    if (stroke) { extend(stroke, events.map(sample)); request(); }
+    else for (const ev of events) { const s = sample(ev); if (erase(ink, active(), s.x, s.y, ERASER_RADIUS)) request(true); }
+    e.preventDefault();
+  }, { capture: true });
+  const end = (e: PointerEvent) => {
+    if (e.pointerId !== pointer) return;
+    if (stroke) { stroke = null; request(true); }
+    pointer = null;
+  };
+  stage.addEventListener('pointerup', end, { capture: true });
+  stage.addEventListener('pointercancel', end, { capture: true });
+  // A stroke is not a click on what lies under it.
+  stage.addEventListener('click', e => { if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopImmediatePropagation(); } }, { capture: true });
+  stage.addEventListener('pointerdown', () => { if (pointer === null) swallowClick = false; });
+  // iPadOS scrolls and selects text with the stylus unless its touches are cancelled,
+  // and a palm resting while writing must not act on the slide.
+  const hold = (e: TouchEvent) => { if (e.cancelable && holdsTouch(touchTypes(e), pointer !== null)) e.preventDefault(); };
+  stage.addEventListener('touchstart', hold, { passive: false });
+  stage.addEventListener('touchmove', hold, { passive: false });
+
+  function showTools() {
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-tool]')) {
+      b.setAttribute('aria-pressed', String(armed && b.dataset.tool === tool));
+      b.toggleAttribute('data-selected', b.dataset.tool === tool);
+    }
+    document.body.classList.toggle('inking', armed);
+  }
+  function arm(on: boolean) { armed = on; showTools(); }
+  // Choosing the selected tool again disarms the mouse; the stylus keeps that tool.
+  function choose(next: Tool) { arm(!(armed && tool === next)); tool = next; showTools(); }
+  function nextColour() { colour = (colour + 1) % COLOURS.length; if (tool !== 'pen') choose('pen'); readPalette(); }
+  function undoInk() { undo(ink, active()); request(true); }
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-tool]')) b.addEventListener('click', () => choose(b.dataset.tool as Tool));
+  document.querySelector('[data-colour]')!.addEventListener('click', nextColour);
+  document.querySelector('[data-undo]')!.addEventListener('click', undoInk);
+  document.querySelector('[data-clear]')!.addEventListener('click', () => { clear(ink, active()); request(true); });
+  themeToggle(document.querySelector<HTMLButtonElement>('[data-theme-toggle]')!, () => { readPalette(); request(true); });
+
+  // Speaker view (?speaker, a second window): the current slide, the next slide's
+  // text, the notes and a clock. The main window never shows the notes.
+  let showSpeaker = () => {};
+  if (speaker) {
+    document.body.classList.add('speaker');
+    const pane = document.createElement('aside');
+    pane.className = 'speaker-pane';
+    pane.innerHTML = '<p class="speaker__head"><span data-speaker-pos></span><button type="button" class="speaker__clock" data-clock title="Reset the clock">0:00</button></p>'
+      + '<ol class="speaker__notes" data-notes></ol><div class="speaker__next"><p class="speaker__label">Next</p><div data-next-slide></div></div>';
+    document.body.append(pane);
+    const notes = pane.querySelector<HTMLElement>('[data-notes]')!, next = pane.querySelector<HTMLElement>('[data-next-slide]')!;
+    const where = pane.querySelector<HTMLElement>('[data-speaker-pos]')!, clock = pane.querySelector<HTMLButtonElement>('[data-clock]')!;
+    const item = (tag: string, text: string, cls = '') => { const el = document.createElement(tag); el.textContent = text; if (cls) el.className = cls; return el; };
+    showSpeaker = () => {
+      const d = data[index], n = data[index + 1];
+      where.textContent = `${index + 1} / ${slides.length} · ${d.title}`;
+      notes.replaceChildren(...d.notes.map(t => item('li', t, /^“/.test(t) ? 'speaker__transition' : '')));
+      if (!n) { next.replaceChildren(item('p', 'End of the deck', 'speaker__next-title')); return; }
+      const lines = [...(n.bullets ?? []), ...(n.number ? [`${n.number.value} ${n.number.label}`] : []), ...(n.formula ? ['Formula'] : []), ...(n.takeaway ? [`▸ ${n.takeaway}`] : []), ...(n.figure ? [`Figure: ${n.figure}`] : [])];
+      const list = document.createElement('ul');
+      list.append(...lines.map(t => item('li', t)));
+      next.replaceChildren(item('p', n.title, 'speaker__next-title'), list);
+    };
+    let start = Date.now();
+    clock.addEventListener('click', () => { start = Date.now(); });
+    setInterval(() => { const s = Math.floor((Date.now() - start) / 1000); clock.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; }, 1000);
+    // The stage takes the room left of the pane, at the deck's proportions.
+    const host = stage.parentElement!;
+    const scaleStage = () => stage.style.setProperty('--u', `${Math.min(host.clientWidth / STAGE.width, host.clientHeight / STAGE.height)}px`);
+    new ResizeObserver(() => { scaleStage(); fitCanvas(); fitAll(); request(true); }).observe(host);
+    scaleStage();
+    channel?.postMessage({ type: 'hello' });
+  }
+
+  let idle = 0;
+  window.addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    document.body.classList.add('pointing');
+    clearTimeout(idle);
+    idle = window.setTimeout(() => document.body.classList.remove('pointing'), 2500);
+  });
+  window.addEventListener('resize', () => { fitCanvas(); fitAll(); request(true); });
+  readPalette(); fitCanvas(); showTools();
+  go(indexFromHash(location.hash, slides.length), { broadcast: false });
+  fitAll();
+  document.body.classList.add('ready');
+</script>
+</body></html>
+<style is:global>
+  :root { --ink-red: #d62728; --ink-blue: #1f6fb4; --ink-ink: #1d1d1f; --ink-highlighter: #ffd400; --ink-on-red: #fff; --control-border-color: rgba(0, 0, 0, .3); }
+  :root[data-theme="dark"] { --ink-red: #ff7b72; --ink-blue: #79c0ff; --ink-ink: #f2f2f2; --ink-highlighter: #ffe066; --ink-on-red: #1d1d1f; --control-border-color: rgba(255, 255, 255, .35); }
+  html, body.deck { height: 100%; }
+  body.deck { margin: 0; overflow: hidden; background: var(--page-bg); }
+  body.deck:not(.ready) .deck-stage { visibility: hidden; }
+  .deck header, .deck nav { width: auto; margin: 0; transform: none; }
+  .deck .figure-wide { transform: none; }
+  .deck-viewport { position: fixed; inset: 0; display: grid; place-items: center; }
+  /* The stage: 1920 × 1080 units; --u is the length of one unit on the screen. */
+  .deck-stage {
+    --u: min(calc(100vw / 1920), calc(100dvh / 1080));
+    position: relative; width: calc(1920 * var(--u)); height: calc(1080 * var(--u));
+    overflow: hidden; background: var(--page-bg); color: var(--text-color); touch-action: pinch-zoom;
+  }
+  .slide {
+    position: absolute; inset: 0; display: flex; flex-direction: column; overflow: hidden;
+    padding: calc(64 * var(--u)) calc(96 * var(--u)) calc(80 * var(--u));
+    visibility: hidden; opacity: 0;
+  }
+  /* opacity as well: a checked checkbox sets visibility on its own ::before and would show through. */
+  .slide[data-active] { visibility: visible; opacity: 1; }
+  .slide__title {
+    margin: 0; max-width: calc(1728 * var(--u)); font-size: calc(50 * var(--u)); line-height: 1.15; font-weight: 650;
+    color: var(--heading-color); text-wrap: balance;
+  }
+  .slide__body { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; gap: calc(48 * var(--u)); margin-top: calc(36 * var(--u)); }
+  /* Text column and figure side by side. */
+  .slide--side .slide__body { flex-direction: row; }
+  .slide--side .slide__text { flex: 0 0 calc(860 * var(--u)); }
+  .slide__text { display: flex; flex-direction: column; gap: calc(26 * var(--u)); min-height: 0; }
+  .slide--plain .slide__text { max-width: calc(1500 * var(--u)); }
+  .slide__bullets { margin: 0; padding: 0; list-style: none; display: grid; gap: calc(16 * var(--u)); font-size: calc(32 * var(--u)); line-height: 1.28; }
+  .slide--plain .slide__bullets { font-size: calc(36 * var(--u)); gap: calc(20 * var(--u)); }
+  .slide__bullets li { position: relative; padding-left: calc(36 * var(--u)); }
+  .slide__bullets li::before {
+    content: ''; position: absolute; left: 0; top: .5em; width: calc(13 * var(--u)); height: calc(13 * var(--u));
+    border-radius: 50%; background: var(--heading-color);
+  }
+  .slide__formula { font-size: calc(34 * var(--u)); }
+  .slide--plain .slide__formula { font-size: calc(40 * var(--u)); }
+  .slide__formula .katex-display { margin: 0; padding: 0; text-align: left; overflow: visible; }
+  .slide__formula .katex-display > .katex { text-align: left; white-space: normal; }
+  .slide__number { margin: 0; display: flex; align-items: baseline; gap: calc(22 * var(--u)); flex-wrap: wrap; }
+  .slide__value { font-size: calc(64 * var(--u)); line-height: 1; font-weight: 700; color: var(--heading-color); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .slide__label { flex: 1 1 calc(300 * var(--u)); font-size: calc(30 * var(--u)); line-height: 1.25; color: var(--muted-color); }
+  .slide__takeaway { margin: 0; font-size: calc(32 * var(--u)); line-height: 1.28; font-weight: 650; color: var(--heading-color); padding-left: calc(36 * var(--u)); position: relative; }
+  .slide__takeaway::before { content: '▸'; position: absolute; left: 0; }
+  .slide--plain .slide__takeaway { font-size: calc(36 * var(--u)); }
+  /* The figure is placed and scaled by the script, from its layout width. */
+  .slide__figure { position: relative; flex: 1 1 0; min-width: 0; min-height: 0; }
+  .slide__figure > figure { position: absolute; left: 0; top: 0; margin: 0; transform-origin: 0 0; }
+  .slide__figure figure > figcaption { display: none; }
+  .slide__page, .slide__source, .deck-counter { position: absolute; bottom: calc(26 * var(--u)); margin: 0; font-size: calc(24 * var(--u)); color: var(--muted-color); }
+  .slide__page, .slide__source { left: calc(96 * var(--u)); text-decoration: none; }
+  .slide__source { right: calc(260 * var(--u)); color: var(--text-color); }
+  .slide__page:hover, .slide__source:hover { text-decoration: underline; }
+  .deck-counter { right: calc(96 * var(--u)); font-variant-numeric: tabular-nums; z-index: 6; pointer-events: none; }
+  /* Title and closing slides: the text and the QR code side by side. */
+  .cover { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: calc(96 * var(--u)); align-items: center; }
+  .cover__title { margin: 0; font-size: calc(96 * var(--u)); line-height: 1.05; color: var(--heading-color); }
+  .cover__subtitle { margin: calc(28 * var(--u)) 0 0; font-size: calc(46 * var(--u)); line-height: 1.25; }
+  .cover__byline { margin: calc(56 * var(--u)) 0 0; font-size: calc(36 * var(--u)); color: var(--muted-color); }
+  .slide--closing .slide__title { font-size: calc(64 * var(--u)); }
+  .cover__url { margin: calc(40 * var(--u)) 0 0; font-size: calc(38 * var(--u)); }
+  .cover a { color: var(--text-color); overflow-wrap: anywhere; }
+  .qr { margin: 0; text-align: center; font-size: calc(26 * var(--u)); }
+  .qr__code { width: calc(440 * var(--u)); height: calc(440 * var(--u)); background: #fff; }
+  .qr__code svg { display: block; width: 100%; height: 100%; }
+  .qr figcaption { margin-top: calc(16 * var(--u)); }
+  canvas.ink { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+  body.inking .deck-stage { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: crosshair; }
+  /* Tools: discreet until pointed at, in the bottom right corner of the window. */
+  .tools {
+    position: fixed; right: 10px; bottom: 10px; z-index: 10; display: flex; align-items: center; gap: 6px;
+    padding: 6px; border: 0; border-radius: 8px; background: var(--page-bg); opacity: 0; transition: opacity .2s; font-size: 14px;
+  }
+  /* Hidden from the audience until the mouse moves; always within reach on a touch screen. */
+  .tools:hover, .tools:focus-within, body.pointing .tools, body.inking .tools, body.speaker .tools { opacity: 1; }
+  @media (pointer: coarse) { .tools { opacity: .6; } }
+  .tools button {
+    min-width: 36px; min-height: 34px; padding: 0 6px; font: inherit; cursor: pointer; display: inline-grid; place-items: center;
+    border: 1px solid var(--control-border-color); border-radius: 4px; background: var(--page-bg); color: var(--text-color);
+  }
+  .tools__ink { display: inline-flex; gap: 6px; margin-inline: 8px; }
+  .tools__icon, .tools__theme svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tools__icon-mark { stroke: var(--ink-highlighter); stroke-width: 3; }
+  .tools__theme .icon-sun, [data-theme="dark"] .tools__theme .icon-moon { display: none; }
+  [data-theme="dark"] .tools__theme .icon-sun { display: block; }
+  .tools button[data-selected] { border: 2px solid var(--ink-red); background: color-mix(in srgb, var(--ink-red) 14%, var(--page-bg)); }
+  .tools button[aria-pressed="true"] { background: var(--ink-red); color: var(--ink-on-red); border-color: var(--ink-red); }
+  /* Speaker view: the slide on the left, notes and the next slide on the right. */
+  body.speaker { background: var(--surface-bg); }
+  body.speaker .deck-viewport { right: 38%; padding: 16px; }
+  body.speaker .deck-stage { outline: 1px solid var(--border-color); }
+  .speaker-pane {
+    position: fixed; top: 0; right: 0; bottom: 0; width: 38%; overflow-y: auto; padding: 16px 20px 64px;
+    border-left: 1px solid var(--border-color); background: var(--page-bg); font-size: 20px; line-height: 1.4;
+  }
+  .speaker__head { display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; font-size: 15px; color: var(--muted-color); }
+  .speaker__clock { font: inherit; font-size: 22px; font-variant-numeric: tabular-nums; border: 0; background: none; color: var(--text-color); cursor: pointer; }
+  .speaker__notes { margin: 0; padding-left: 1.2em; display: grid; gap: 10px; }
+  .speaker__transition { font-style: italic; color: var(--heading-color); }
+  .speaker__next { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border-color); font-size: 16px; color: var(--muted-color); }
+  .speaker__label { margin: 0 0 4px; text-transform: uppercase; letter-spacing: .06em; font-size: 12px; }
+  .speaker__next-title { margin: 0 0 6px; font-size: 18px; font-weight: 600; color: var(--text-color); }
+  .speaker__next ul { margin: 0; padding-left: 1.1em; }
+  body.speaker .tools { right: calc(38% + 10px); }
+</style>

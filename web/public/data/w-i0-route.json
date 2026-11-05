@@ -1,0 +1,50 @@
+{
+  "source": "Section headings of the attribution page and the labels of the static infographic i0-route; ids are the headings' slugs.",
+  "start": {
+    "id": "introduction",
+    "title": "The desk's question",
+    "short": "where the P&L comes from",
+    "long": "where the P&L comes from: signals, positions and costs"
+  },
+  "end": {
+    "title": "Explaining a P&L",
+    "text": "contributions that sum to the total, shared information"
+  },
+  "stations": [
+    {
+      "n": 1,
+      "id": "1-what-it-means-to-attribute-a-pl",
+      "short": "Attributing a P&L",
+      "title": "What it means to attribute a P&L",
+      "anchors": "reference P&L, residual"
+    },
+    {
+      "n": 2,
+      "id": "2-the-classical-answers",
+      "short": "Classical answers",
+      "title": "The classical answers",
+      "anchors": "Brinson 1985/86, Litterman 1996, factor models, Menkveld's ledger"
+    },
+    {
+      "n": 3,
+      "id": "3-attributing-a-pl-to-signals",
+      "short": "Signals",
+      "title": "Attributing a P&L to signals",
+      "anchors": "proxies, leave-one-out, Durin 2014, Grinold–Easton, Shapley 1953"
+    },
+    {
+      "n": 4,
+      "id": "4-correlated-indicators-and-the-value-of-a-subset",
+      "short": "Correlated indicators",
+      "title": "Correlated indicators",
+      "anchors": "Shapley *R*^{2}, SHAP, SAGE"
+    },
+    {
+      "n": 5,
+      "id": "5-research-directions",
+      "short": "Research directions",
+      "title": "Research directions",
+      "anchors": "ledger, signals, later extensions"
+    }
+  ]
+}

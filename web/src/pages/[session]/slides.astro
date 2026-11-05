@@ -1,0 +1,37 @@
+---
+// Web slide deck of a session (../../layouts/Slides.astro): one slide per talk screen,
+// from ../../content/slides/<session>.json, with the page's own figures. The build fails
+// if the deck breaks a rule of ../../scripts/slides.js or names a figure or an anchor
+// the page does not have.
+import Slides from '../../layouts/Slides.astro';
+import { checkDeck, explicitIds, pageFigures, sectionLabel } from '../../scripts/slides.js';
+export function getStaticPaths() {
+  const decks = import.meta.glob('../../content/slides/*.json', { eager: true, import: 'default' });
+  const pages = import.meta.glob('../../content/sessions/*.mdx', { eager: true });
+  const sources = import.meta.glob('../../content/sessions/*.mdx', { eager: true, query: '?raw', import: 'default' });
+  return Object.entries(decks).map(([path, deck]) => {
+    const session = path.split('/').pop().replace('.json', '');
+    const mdx = `../../content/sessions/${session}.mdx`;
+    if (!pages[mdx]) throw new Error(`Slide deck without a page: ${session}`);
+    return { params: { session }, props: { deck, page: pages[mdx], source: sources[mdx] } };
+  });
+}
+const { deck, page, source } = Astro.props;
+const { session } = Astro.params;
+const figures = pageFigures(source);
+const headings = page.getHeadings();
+const anchors = new Set([...headings.map(h => h.slug), ...explicitIds(source)]);
+const errors = checkDeck(deck, { anchors, figures: new Set(figures.keys()) });
+if (errors.length) throw new Error(`Slide deck ${session}:\n  ${errors.join('\n  ')}`);
+// The page link of a slide names its section: the heading of its anchor, or the
+// heading that precedes an explicit id in the source.
+const headingText = new Map(headings.map(h => [h.slug, h.text]));
+const label = (anchor: string) => {
+  if (headingText.has(anchor)) return sectionLabel(headingText.get(anchor)!);
+  const at = source.indexOf(`id="${anchor}"`);
+  const before = [...source.slice(0, at).matchAll(/^#{2,3} (.+)$/gm)].at(-1)?.[1] ?? '';
+  return sectionLabel(before);
+};
+const slides = deck.slides.map((s: any) => ({ ...s, kind: s.kind ?? 'content', sectionLabel: label(s.section), embed: s.figure ? figures.get(s.figure) : null }));
+---
+<Slides session={session} title={page.frontmatter.title} slides={slides} />

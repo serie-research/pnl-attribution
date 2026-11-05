@@ -1,0 +1,43 @@
+---
+// Full-width citation graph of the reading corpus. Not linked from the article.
+// Data: public/data/citation-graph.json, rebuilt by tools/build-citation-graph.py.
+import '../../styles/session.css';
+import '../../styles/embeds.css';
+import HtmlEmbed from '../../components/HtmlEmbed.astro';
+import graph from '../../../public/data/citation-graph.json';
+const cited = graph.nodes.filter(n => n.cited.length).length;
+const year = Object.fromEntries(graph.nodes.map(n => [n.key, n.year]));
+const forward = graph.edges.filter(e => year[e.target] >= year[e.source]).length;
+---
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><meta name="robots" content="noindex" /><title>Citation graph of the reading corpus</title></head>
+<body class="citations">
+<header>
+  <h1>Citation graph of the reading corpus</h1>
+  <p>The {graph.nodes.length} papers read for the article on performance attribution, and the {graph.edges.length} citations between them. An arrow goes from a paper to a paper of the corpus that its reader found cited in its text; citations to papers outside the corpus are not drawn, and an arrow is not an endorsement. Most arrows point back in time; {forward} point to a paper with the same or a later publication year, because working-paper and publication dates differ. Papers are placed by year of publication and sorted into four groups by their main theme. The article cites {cited} of them{graph.outside ? `; its ${graph.outside} other references are practitioner books and papers read for a separate question, and are not in this graph` : ''}.</p>
+  <p class="toolbar"><button type="button" class="theme" aria-pressed="false">Dark theme</button></p>
+</header>
+<main>
+  <HtmlEmbed src="w-citation-graph.html" data="citation-graph.json" title="Who cites whom in the reading corpus"
+    alt={`Citation graph of ${graph.nodes.length} papers placed by publication year in four topic lanes; each paper opens a card with its one-sentence summary, the papers it cites and that cite it, and the sections of the article where it appears.`} />
+</main>
+</body></html>
+
+<style is:global>
+  .citations header, .citations main { width: min(1400px, calc(100% - 32px)); margin: 24px auto; transform: none; }
+  .citations header p { max-width: 820px; }
+  .citations h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+  .citations .theme { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--surface-bg); color: var(--text-color); cursor: pointer; }
+  .citations .html-embed { margin: 0; }
+  .citations .html-embed > figcaption { margin-bottom: 8px; }
+  @media (max-width: 480px) { .citations header, .citations main { width: calc(100% - 24px); } .citations [data-embed] .w-cg { padding: 10px 10px; } }
+</style>
+<script>
+  const button = document.querySelector('.citations .theme');
+  const setTheme = dark => {
+    if (dark) document.documentElement.dataset.theme = 'dark'; else delete document.documentElement.dataset.theme;
+    button.setAttribute('aria-pressed', String(dark)); button.textContent = dark ? 'Light theme' : 'Dark theme';
+  };
+  button.addEventListener('click', () => setTheme(document.documentElement.dataset.theme !== 'dark'));
+  setTheme(new URLSearchParams(location.search).get('theme') === 'dark');
+</script>

@@ -1,0 +1,21 @@
+---
+// <Infographic name="i2-brinson-area" alt="..." caption="..." />
+// Static TikZ diagram built by tools/tikz-build.sh into public/figures/.
+// Viewports up to 700px get the stacked <name>-narrow.svg. Each SVG draws its
+// own light card, so it reads the same on the light and dark themes.
+interface Props { name: string; alt: string; caption: string; }
+const { name, alt, caption } = Astro.props;
+const base = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}figures/`;
+---
+<figure class="infographic" data-infographic={name}>
+  <picture>
+    <source media="(max-width: 700px)" srcset={`${base}${name}-narrow.svg`} />
+    <img src={`${base}${name}.svg`} alt={alt} />
+  </picture>
+  <figcaption>{caption}</figcaption>
+</figure>
+
+<style>
+  .infographic img { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+  .infographic figcaption { margin-top: 8px; font-size: .9rem; line-height: 1.5; color: var(--muted-color); }
+</style>

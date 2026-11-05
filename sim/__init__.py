@@ -1,0 +1,1 @@
+"""Synthetic performance attribution simulations."""

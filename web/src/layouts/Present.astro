@@ -1,0 +1,537 @@
+---
+import QRCode from 'qrcode';
+import ThemeInit from '../components/ThemeInit.astro';
+import '../styles/session.css';
+import '../styles/embeds.css';
+import 'katex/dist/katex.min.css';
+const { session, title, subtitle = '', messages = {}, talkOrder = [] } = Astro.props;
+// Read by the script below; `<` is escaped so the JSON cannot close its script element.
+const presentData = JSON.stringify({ messages, talkOrder }).replace(/</g, '\\u003c');
+const base = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+// Reader URL of the page: origin + BASE_URL + session slug. No network call at runtime.
+const origin = (import.meta.env.PUBLIC_SITE_ORIGIN || 'https://attribution.serie-research.dev').replace(/\/+$/, '');
+const pageUrl = `${origin}${base}${session}/`;
+const shownUrl = pageUrl.replace(/^https:\/\//, '');
+// A 4-module quiet zone on a white background keeps the code readable in dark mode too.
+const qr = await QRCode.toString(pageUrl, {
+  type: 'svg', errorCorrectionLevel: 'M', margin: 4,
+  color: { dark: '#000000', light: '#ffffff' },
+});
+---
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex" /><title>{title} · Presentation</title>
+<ThemeInit /></head>
+<body data-title={title}>
+<main>
+  <section class="slide slide--title" data-slug="" data-title={title}>
+    <div class="title-grid">
+      <header class="session-header">
+        <h1>{title}</h1>
+        {subtitle && <p class="session-header__date">{subtitle}</p>}
+        <p class="session-header__licence">Text and figures CC BY 4.0 · code MIT</p>
+      </header>
+      <figure class="qr">
+        <div class="qr__code" role="img" aria-label={`QR code for ${pageUrl}`} set:html={qr} />
+        <figcaption>The page, with code and references<br /><a href={pageUrl}>{shownUrl}</a></figcaption>
+      </figure>
+    </div>
+  </section>
+  <slot />
+</main>
+<script type="application/json" id="present-data" set:html={presentData} />
+<nav class="hud" aria-label="Presentation">
+  <a class="hud__page" href={`${base}${session}/`}>Page</a>
+  <span class="hud__pos" aria-live="polite"><span data-pos></span> <span class="hud__title" data-section-title></span></span>
+  <span class="hud__nav"><button type="button" class="hud__order" data-order-toggle aria-pressed="false">Page order</button><button type="button" class="hud__theme" data-theme-toggle aria-label="Switch to dark theme" title="Switch to dark theme"><svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg></button><span class="hud__ink" role="group" aria-label="Ink"><button type="button" data-tool="pen" aria-pressed="false" aria-label="Pen (P)" title="Pen (P): the stylus always writes; with the button pressed, the mouse writes too"><svg class="hud__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 0l.5.5a2.1 2.1 0 0 1 0 3L8.5 19z"/><path d="M13.5 7l3.5 3.5"/><path d="M4 20l4.5-1"/></svg></button><button type="button" data-tool="highlighter" aria-pressed="false" aria-label="Highlighter (H)" title="Highlighter (H)"><svg class="hud__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 15.5l-3-3 8.5-8.5 3 3z"/><path d="M6.5 12.5L5 17l2 2 4.5-1.5"/><path d="M5 19l-2 2h5"/><path d="M12 22h9" class="hud__icon-mark"/></svg></button><button type="button" data-tool="eraser" aria-pressed="false" aria-label="Eraser (E)" title="Eraser (E): removes the strokes it touches. A pen's eraser end erases too."><svg class="hud__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.5 20L3.7 15.2a1.8 1.8 0 0 1 0-2.5l9-9a1.8 1.8 0 0 1 2.5 0l5.1 5.1a1.8 1.8 0 0 1 0 2.5L12 19.6"/><path d="M8.2 8.2l7.6 7.6"/><path d="M8.5 20H20"/></svg></button><button type="button" data-colour aria-label="Pen colour (C)" title="Pen colour (C)">●</button><button type="button" data-undo aria-label="Undo (Z)" title="Undo (Z)">↶</button><button type="button" data-clear aria-label="Clear this section's ink" title="Clear this section's ink">✕</button></span><button type="button" data-prev aria-label="Previous screen">←</button><button type="button" data-next aria-label="Next screen">→</button></span>
+</nav>
+<script>
+  import { begin, clear, createInk, draws, erase, erases, extend, holdsTouch, strokesOf, undo } from '../scripts/ink.js';
+  import { figureFit, positionOf, screensOf, visitOrder } from '../scripts/present-screens.js';
+  import { themeToggle } from '../scripts/theme.js';
+  // One screen per h2 opening and h3 subsection (../scripts/present-screens.js). A screen
+  // shows its heading, its message and its first figure, scaled to fit; the rest of its
+  // content is folded below. The hash carries the heading id (empty for the title screen).
+  const main = document.querySelector('main')!;
+  const titleSlide = main.querySelector<HTMLElement>('.slide--title')!;
+  const dataNode = document.getElementById('present-data')!;
+  const data: { messages: Record<string, string>; talkOrder: string[] } = JSON.parse(dataNode.textContent!);
+  dataNode.remove();
+  // Whitespace between blocks is not content; a screen holds elements.
+  const nodes = [...main.childNodes].filter(n => n !== titleSlide && (n instanceof Element || n.textContent!.trim()));
+  for (const n of main.childNodes) if (n !== titleSlide && !nodes.includes(n as ChildNode)) n.remove();
+  // The figure a block shows on its screen: the block itself, a wrapper holding only
+  // a figure, or the first figure inside it that no fold or note hides.
+  const figureOf = (n: ChildNode): HTMLElement | null => {
+    if (!(n instanceof HTMLElement) || n.matches('details, aside, .paper-note')) return null;
+    if (n.tagName === 'FIGURE') return n;
+    const f = [...n.querySelectorAll('figure')].find(f => { const c = f.closest('details, aside, .paper-note'); return !c || !n.contains(c); });
+    if (!f) return null;
+    const own = [...n.children].filter(c => !/^(STYLE|SCRIPT)$/.test(c.tagName));
+    return own.length === 1 && own[0] === f ? n : f;
+  };
+  const blocks = nodes.map(n => n instanceof HTMLElement ? { tag: n.tagName, id: n.id, text: n.textContent ?? '', figure: !!figureOf(n) } : { tag: '#text' });
+  const slides: HTMLElement[] = [titleSlide];
+  for (const screen of screensOf(blocks, document.body.dataset.title ?? '')) {
+    const s = document.createElement('section');
+    s.className = 'slide screen';
+    s.dataset.slug = screen.slug;
+    s.dataset.title = screen.title;
+    const stage = document.createElement('div');
+    stage.className = 'screen__stage';
+    if (screen.heading !== null) stage.append(nodes[screen.heading]);
+    const message = data.messages[screen.slug];
+    if (message) {
+      const p = document.createElement('p');
+      p.className = 'screen__message';
+      p.textContent = message;
+      stage.append(p);
+    }
+    const figure = screen.figure === null ? null : figureOf(nodes[screen.figure])!;
+    if (figure) {
+      const box = document.createElement('div');
+      box.className = 'screen__figure';
+      box.append(figure);
+      stage.append(box);
+    } else s.classList.add('screen--plain');
+    s.append(stage);
+    const rest = screen.blocks.filter(i => i !== screen.heading && nodes[i] !== figure);
+    if (rest.length) {
+      // The article text, folded, for questions.
+      const fold = document.createElement('details');
+      fold.className = 'screen__text';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Text';
+      const body = document.createElement('div');
+      body.className = 'screen__body';
+      body.append(...rest.map(i => nodes[i]));
+      fold.append(summary, body);
+      s.append(fold);
+    }
+    main.append(s);
+    slides.push(s);
+  }
+  main.classList.add('ready');
+
+  // A figure keeps its layout width (the stage's) and is scaled down until it fits
+  // below the message, or beside the heading and message when that shows it larger
+  // (a tall figure). Figures draw late and change size: refit then.
+  const fitFigure = (box: HTMLElement) => {
+    const figure = box.firstElementChild as HTMLElement | null;
+    if (!figure) return;
+    const slide = box.closest<HTMLElement>('.slide')!, stage = box.parentElement!;
+    slide.classList.remove('screen--side');
+    const width = stage.clientWidth;
+    figure.style.width = `${width}px`;
+    const top = parseFloat(getComputedStyle(stage).paddingTop);
+    const fit = figureFit({ width, height: figure.offsetHeight, stackRoom: box.clientHeight, sideRoom: stage.clientHeight - top });
+    slide.classList.toggle('screen--side', fit.side);
+    slide.style.setProperty('--figure-w', `${Math.floor(width * fit.scale)}px`);
+    figure.style.transform = fit.scale < 1 ? `scale(${fit.scale})` : 'none';
+    box.dataset.scale = fit.scale.toFixed(3);
+  };
+  const boxes = [...main.querySelectorAll<HTMLElement>('.screen__figure')];
+  const fitAll = () => boxes.forEach(fitFigure);
+  const sizes = new ResizeObserver(entries => { for (const e of entries) fitFigure((e.target as HTMLElement).parentElement!); });
+  for (const box of boxes) sizes.observe(box.firstElementChild!);
+  fitAll();
+
+  // Visit order: every screen in page order (the default), or the talk's screens with
+  // ?order=talk (talk/draft.md, through ../content/present.json). The counter is a
+  // position in that order, so it never runs backwards. A link may open a screen the
+  // order skips: a detour, after which the arrows resume the order where it was.
+  const pos = document.querySelector<HTMLElement>('[data-pos]')!;
+  const label = document.querySelector<HTMLElement>('[data-section-title]')!;
+  const orderButton = document.querySelector<HTMLButtonElement>('[data-order-toggle]')!;
+  const screenOf = (anchor: string) => anchor ? slides.indexOf(document.getElementById(anchor)?.closest<HTMLElement>('.slide')!) : 0;
+  let talk = new URLSearchParams(location.search).get('order') === 'talk';
+  let order = visitOrder(slides.length, talk ? data.talkOrder : null, screenOf);
+  let index = -1, at = 0, detour = false;
+  const display = (i: number, { scroll = true, hash = true } = {}) => {
+    if (i !== index) {
+      slides[index]?.removeAttribute('data-active');
+      index = i;
+      slides[i].setAttribute('data-active', '');
+      if (scroll) slides[i].scrollTop = 0;
+    }
+    pos.textContent = `${detour ? '–' : at + 1} / ${order.length}`;
+    label.textContent = slides[i].dataset.title ?? '';
+    if (hash) {
+      const url = location.pathname + location.search + (slides[i].dataset.slug ? `#${slides[i].dataset.slug}` : '');
+      history.replaceState(null, '', url);
+    }
+    slides[i].focus({ preventScroll: true });
+  };
+  const go = (p: number, options = {}) => {
+    at = Math.max(0, Math.min(order.length - 1, p));
+    detour = false;
+    display(order[at], options);
+  };
+  const step = (k: number) => go(detour && k < 0 ? at : at + k);
+  const visit = (i: number, options = {}) => {
+    const p = positionOf(order, i, at);
+    if (p === null) { detour = true; display(i, options); } else go(p, options);
+  };
+  const showOrder = () => {
+    orderButton.setAttribute('aria-pressed', String(talk));
+    orderButton.textContent = talk ? 'Talk order' : 'Page order';
+    orderButton.title = talk ? 'The talk\'s screens, in its order (T). Switch to page order' : 'Every screen, in page order (T). Switch to the talk order';
+  };
+  const toggleOrder = () => {
+    talk = !talk;
+    order = visitOrder(slides.length, talk ? data.talkOrder : null, screenOf);
+    const params = new URLSearchParams(location.search);
+    if (talk) params.set('order', 'talk'); else params.delete('order');
+    const search = params.toString();
+    history.replaceState(null, '', location.pathname + (search ? `?${search}` : '') + location.hash);
+    showOrder();
+    at = 0;
+    visit(index, { scroll: false });
+  };
+  showOrder();
+  orderButton.addEventListener('click', toggleOrder);
+
+  // A hash names a screen's heading, or an element inside the screen (an equation, a
+  // reference): the screen opens, and its text unfolds to show an element folded in it.
+  const fromHash = () => {
+    const id = decodeURIComponent(location.hash.slice(1));
+    const target = id ? document.getElementById(id) : null;
+    const slide = target?.closest<HTMLElement>('.slide');
+    if (!slide) { visit(0, { hash: false }); return; }
+    visit(slides.indexOf(slide), { hash: false });
+    if (target!.closest('.screen__text')) {
+      for (let d = target!.closest('details'); d; d = d.parentElement!.closest('details')) d.open = true;
+      target!.scrollIntoView();
+    }
+  };
+  for (const s of slides) s.tabIndex = -1;
+  fromHash();
+  window.addEventListener('hashchange', fromHash);
+  // A link to a section of the article, in the text or built by a figure, opens that
+  // section here: the presentation holds the whole article. Files and other pages are
+  // ordinary links.
+  const articlePath = new URL('../', location.href).pathname;
+  main.addEventListener('click', (e) => {
+    const link = (e.target as Element).closest('a');
+    if (!link || e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const url = new URL(link.getAttribute('href') || link.getAttribute('xlink:href') || '', location.href);
+    const id = decodeURIComponent(url.hash.slice(1));
+    if (url.origin !== location.origin || url.pathname !== articlePath || !id || !document.getElementById(id)) return;
+    e.preventDefault();
+    location.hash = url.hash;
+  });
+
+  document.querySelector('[data-prev]')!.addEventListener('click', () => step(-1));
+  document.querySelector('[data-next]')!.addEventListener('click', () => step(1));
+  window.addEventListener('keydown', (e) => {
+    if (e.altKey || e.ctrlKey || e.metaKey) return;
+    // Letters are typed in text fields. The ink letters mean nothing to a button or a
+    // link, so they work after one is tapped (a figure's toggle, a HUD tool).
+    const target = e.target as Element;
+    if (target.closest('input, select, textarea, [contenteditable]')) return;
+    const tools: Record<string, Tool> = { p: 'pen', h: 'highlighter', e: 'eraser' };
+    const key = e.key.toLowerCase();
+    if (tools[key]) choose(tools[key]);
+    if (key === 'c') nextColour();
+    if (key === 'z') undoInk();
+    if (key === 't') toggleOrder();
+    if (e.key === 'Escape') arm(false);
+    // Space presses a focused button, summary or link; the arrows mean nothing to them,
+    // so they still change screen after a control was tapped.
+    const keys: Record<string, number> = { ArrowRight: 1, PageDown: 1, ArrowLeft: -1, PageUp: -1 };
+    let k = keys[e.key];
+    if (e.key === ' ') k = target.closest('button, summary, a') ? 0 : e.shiftKey ? -1 : 1;
+    if (e.key === 'Home') { go(0); e.preventDefault(); return; }
+    if (e.key === 'End') { go(order.length - 1); e.preventDefault(); return; }
+    if (k) { step(k); e.preventDefault(); }
+  });
+
+  // Ink. A stylus always writes on the current section with the selected tool; a finger
+  // scrolls and presses controls; the mouse writes only while a tool is armed. The model
+  // (strokes, widths, erasing, undo) is ../scripts/ink.js. One screen-sized canvas over
+  // the sections shows the active section's strokes at its scroll position, so its size
+  // never depends on the section's length.
+  type Tool = 'pen' | 'highlighter' | 'eraser';
+  type Stroke = ReturnType<typeof begin>;
+  const ink = createInk();
+  const COLOURS = ['red', 'blue', 'ink'];
+  const ERASER_RADIUS = 10;
+  const canvas = document.createElement('canvas');
+  canvas.className = 'ink';
+  canvas.setAttribute('aria-hidden', 'true');
+  document.body.append(canvas);
+  const g = canvas.getContext('2d', { desynchronized: true })!;
+  const palette: Record<string, string> = {};
+  let tool: Tool = 'pen', colour = 0, armed = false;
+  let stroke: Stroke = null, erasing = false, swallowClick = false;
+  // The pointer that writes or erases. Other pointers (a resting palm, a second finger)
+  // neither extend nor end its stroke.
+  let pointer: number | null = null;
+  let painted = 0, frame = 0, full = true;
+  // Where the active section's box is on the screen (read at pointerdown; a section
+  // never moves) and how far it is scrolled (read once per frame). A pointer sample is
+  // box- and scroll-relative, so a stroke stays under the pencil even if the section
+  // scrolls while it is being written.
+  let box = { left: 0, top: 0 }, view = { left: 0, top: 0 };
+  const readView = (slide: HTMLElement) => { view = { left: slide.scrollLeft, top: slide.scrollTop }; };
+  const active = () => slides[index];
+
+  const readPalette = () => {
+    const style = getComputedStyle(document.documentElement);
+    for (const name of [...COLOURS, 'highlighter']) palette[name] = style.getPropertyValue(`--ink-${name}`).trim();
+    const button = document.querySelector<HTMLElement>('[data-colour]')!;
+    button.style.color = palette[COLOURS[colour]];
+  };
+  const fit = () => {
+    const ratio = devicePixelRatio || 1;
+    canvas.width = Math.round(canvas.clientWidth * ratio);
+    canvas.height = Math.round(canvas.clientHeight * ratio);
+    full = true;
+  };
+
+  // Smoothed path: quadratic curves through the midpoints of consecutive points.
+  const mid = (p: number[], a: number, b: number) => [(p[3 * a] + p[3 * b]) / 2, (p[3 * a + 1] + p[3 * b + 1]) / 2];
+  function segment(p: number[], i: number, last: boolean) {
+    // The piece of curve that ends at point i (the last piece runs to the final point).
+    const [x0, y0] = i > 1 ? mid(p, i - 2, i - 1) : [p[0], p[1]];
+    const [x1, y1] = last ? [p[3 * i], p[3 * i + 1]] : mid(p, i - 1, i);
+    g.lineWidth = (p[3 * (i - 1) + 2] + p[3 * i + 2]) / 2;
+    g.beginPath();
+    g.moveTo(x0, y0);
+    g.quadraticCurveTo(p[3 * (i - 1)], p[3 * (i - 1) + 1], x1, y1);
+    g.stroke();
+  }
+  function paint(s: NonNullable<Stroke>, from: number, done: boolean) {
+    const p = s.points, n = p.length / 3;
+    g.lineCap = 'round'; g.lineJoin = 'round';
+    if (s.tool === 'highlighter') {
+      g.globalAlpha = 0.35; g.strokeStyle = palette.highlighter; g.lineWidth = p[2];
+      g.beginPath(); g.moveTo(p[0], p[1]);
+      for (let i = 1; i < n; i++) { const [x, y] = i < n - 1 ? mid(p, i, i + 1) : [p[3 * i], p[3 * i + 1]]; g.quadraticCurveTo(p[3 * i], p[3 * i + 1], x, y); }
+      g.stroke(); g.globalAlpha = 1;
+      return;
+    }
+    g.strokeStyle = g.fillStyle = palette[s.colour];
+    if (n === 1) { g.beginPath(); g.arc(p[0], p[1], p[2] / 2, 0, 2 * Math.PI); g.fill(); return; }
+    for (let i = Math.max(1, from); i < n; i++) segment(p, i, done && i === n - 1);
+  }
+  // One paint per animation frame: everything after a scroll, a section change or an
+  // erasure; only the new pieces of a pen stroke while it is being written.
+  function draw() {
+    frame = 0;
+    const slide = active(), ratio = devicePixelRatio || 1;
+    readView(slide);
+    g.setTransform(ratio, 0, 0, ratio, -view.left * ratio, -view.top * ratio);
+    if (full || stroke?.tool === 'highlighter') {
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, canvas.width, canvas.height); g.restore();
+      for (const s of strokesOf(ink, slide)) if (s !== stroke) paint(s, 0, true);
+      if (stroke) paint(stroke, 0, false);
+      full = false;
+    } else if (stroke) paint(stroke, painted, false);
+    if (stroke) painted = stroke.points.length / 3;
+  }
+  const request = (all = false) => { full ||= all; if (!frame) frame = requestAnimationFrame(draw); };
+
+  const sample = (e: PointerEvent) => ({ pointerType: e.pointerType, pressure: e.pressure, x: e.clientX - box.left + view.left, y: e.clientY - box.top + view.top });
+  main.addEventListener('pointerdown', e => {
+    if (pointer !== null || !draws(e.pointerType, armed) || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    pointer = e.pointerId;
+    const slide = active(), r = slide.getBoundingClientRect();
+    box = { left: r.left, top: r.top }; readView(slide);
+    // A pen's eraser end erases whatever tool is selected.
+    if (erases(tool, e.pointerType, e.buttons)) { erasing = true; if (erase(ink, slide, ...xy(sample(e)), ERASER_RADIUS)) request(true); }
+    else { stroke = begin(ink, slide, sample(e), { tool, colour: COLOURS[colour] }); painted = 0; request(); }
+    main.setPointerCapture(e.pointerId);
+    swallowClick = true;
+    e.preventDefault(); e.stopPropagation();
+  }, { capture: true });
+  const xy = (q: { x: number; y: number }) => [q.x, q.y] as const;
+  main.addEventListener('pointermove', e => {
+    if (e.pointerId !== pointer) return;
+    const events = e.getCoalescedEvents?.().length ? e.getCoalescedEvents() : [e];
+    if (stroke) { extend(stroke, events.map(sample)); request(); }
+    else for (const ev of events) if (erase(ink, active(), ...xy(sample(ev)), ERASER_RADIUS)) request(true);
+    e.preventDefault();
+  }, { capture: true });
+  const end = (e: PointerEvent) => {
+    if (e.pointerId !== pointer) return;
+    if (stroke) { stroke = null; request(true); }
+    erasing = false; pointer = null;
+  };
+  main.addEventListener('pointerup', end, { capture: true });
+  main.addEventListener('pointercancel', end, { capture: true });
+  // A stroke is not a click on what lies under it.
+  main.addEventListener('click', e => { if (swallowClick) { swallowClick = false; e.preventDefault(); e.stopPropagation(); } }, { capture: true });
+  main.addEventListener('pointerdown', () => { if (pointer === null) swallowClick = false; }, { capture: false });
+  // iPadOS scrolls and selects text with the stylus unless its touches are cancelled,
+  // and a palm resting while writing would scroll the section under the pencil.
+  const hold = (e: TouchEvent) => {
+    const types = [...e.changedTouches].map(t => (t as Touch & { touchType?: string }).touchType ?? '');
+    if (e.cancelable && holdsTouch(types, pointer !== null)) e.preventDefault();
+  };
+  main.addEventListener('touchstart', hold, { passive: false });
+  main.addEventListener('touchmove', hold, { passive: false });
+  main.addEventListener('scroll', () => request(true), { capture: true, passive: true });
+  new MutationObserver(() => request(true)).observe(main, { subtree: true, attributeFilter: ['data-active'] });
+  window.addEventListener('resize', () => { fit(); fitAll(); request(true); });
+
+  function showTools() {
+    for (const b of document.querySelectorAll<HTMLButtonElement>('[data-tool]')) {
+      b.setAttribute('aria-pressed', String(armed && b.dataset.tool === tool));
+      b.toggleAttribute('data-selected', b.dataset.tool === tool);
+    }
+    document.body.classList.toggle('inking', armed);
+  }
+  function arm(on: boolean) { armed = on; showTools(); }
+  // Choosing the selected tool again disarms the mouse; the stylus keeps that tool.
+  function choose(next: Tool) { arm(!(armed && tool === next)); tool = next; showTools(); }
+  function nextColour() { colour = (colour + 1) % COLOURS.length; if (tool !== 'pen') choose('pen'); readPalette(); }
+  function undoInk() { undo(ink, active()); request(true); }
+  for (const b of document.querySelectorAll<HTMLButtonElement>('[data-tool]')) b.addEventListener('click', () => choose(b.dataset.tool as Tool));
+  document.querySelector('[data-colour]')!.addEventListener('click', nextColour);
+  document.querySelector('[data-undo]')!.addEventListener('click', undoInk);
+  document.querySelector('[data-clear]')!.addEventListener('click', () => { clear(ink, active()); request(true); });
+  readPalette(); fit(); showTools();
+  // The ink colours follow the theme: repaint the visible strokes when it changes.
+  themeToggle(document.querySelector<HTMLButtonElement>('[data-theme-toggle]')!, () => { readPalette(); request(true); });
+</script>
+</body></html>
+<style is:global>
+  html { font-size: 150%; }
+  @media (max-width: 700px) { html { font-size: 112.5%; } }
+  body { margin: 0; height: 100dvh; overflow: hidden; --hud-h: 48px; }
+  /* Before the script groups the content, main has the same box as a slide, so the
+     embeds measure the width they will keep. */
+  main {
+    position: fixed; inset: 0 0 var(--hud-h) 0; width: auto; margin: 0; transform: none;
+    overflow-y: auto; overflow-x: hidden;
+    padding: 32px max(24px, calc((100% - 1100px) / 2)) 64px;
+  }
+  main:not(.ready) { visibility: hidden; }
+  main.ready { overflow: hidden; padding: 0; }
+  .slide {
+    position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; visibility: hidden; opacity: 0;
+    padding: 32px max(24px, calc((100% - 1100px) / 2)) 64px; outline: none;
+  }
+  .slide[data-active] { visibility: visible; opacity: 1; }
+  /* opacity as well: a checked checkbox sets visibility on its own ::before and would show through. */
+  /* A screen: the stage fills the window above the "Text" fold, whose summary is the
+     last line of the window. The figure takes what the heading and the message leave. */
+  .slide.screen { --fold-h: 52px; padding: 0 max(40px, calc((100% - 1180px) / 2)) 0; }
+  .screen__stage {
+    height: calc(100dvh - var(--hud-h) - var(--fold-h)); display: flex; flex-direction: column;
+    padding-top: 28px;
+  }
+  .screen--plain .screen__stage { justify-content: center; padding-bottom: 8vh; }
+  /* The scroll margin equals the stage's top padding: opening a screen by its hash
+     (the browser scrolls to the heading) shows it from the top, as the arrows do. */
+  .screen__stage > :is(h2, h3) {
+    margin: 0; font-size: 1.75rem; line-height: 1.2; color: var(--heading-color); scroll-margin-top: 28px;
+    max-width: 1100px;
+  }
+  .screen__message { margin: 14px 0 0; font-size: 1.3rem; line-height: 1.35; max-width: 1100px; text-wrap: pretty; }
+  .screen--plain .screen__stage > :is(h2, h3) { font-size: 2.1rem; }
+  .screen--plain .screen__message { font-size: 1.45rem; max-width: 980px; }
+  .screen__figure { flex: 1 1 0; min-height: 0; margin-top: 18px; position: relative; }
+  .screen__figure > * { margin: 0 !important; transform-origin: top center; }
+  /* A wrapper's figure would carry its margin outside the measured box. */
+  .screen__figure > * { display: flow-root; }
+  .screen__figure > :not(figure) > figure { margin: 0; }
+  /* A tall figure stands beside the heading and the message, which keep the left column. */
+  .screen--side .screen__stage { display: grid; grid-template-columns: minmax(0, 1fr) var(--figure-w); grid-template-rows: auto 1fr; column-gap: 40px; }
+  .screen--side .screen__stage > :is(h2, h3) { grid-column: 1; grid-row: 1; font-size: 1.6rem; }
+  .screen--side .screen__message { grid-column: 1; grid-row: 2; align-self: start; font-size: 1.2rem; }
+  .screen--side .screen__figure { grid-column: 2; grid-row: 1 / span 2; margin-top: 0; }
+  .screen--side .screen__figure > * { transform-origin: top left; }
+  /* On the screen a figure shows its title; its reading notes stay in the article. */
+  .screen__figure figure > figcaption p { display: none; }
+  .screen__figure figure > figcaption strong { font-size: 1rem; }
+  .screen__text { padding-bottom: 64px; }
+  .screen__body { max-width: 1100px; }
+  .screen__text > summary {
+    height: var(--fold-h); display: flex; align-items: center; gap: 8px; font-size: .75rem;
+    color: var(--muted-color); border-top: 1px solid var(--border-color);
+  }
+  .screen__text[open] > summary { color: var(--text-color); }
+  .screen__text > summary { list-style: none; }
+  .screen__text > summary::-webkit-details-marker { display: none; }
+  .screen__text > summary::before { content: '▸'; font-size: .7em; }
+  .screen__text[open] > summary::before { content: '▾'; }
+  .screen__body > h2:first-child, .screen__body > h3:first-child { margin-top: 12px; }
+  /* The citation graph uses more than the text column. */
+  :is(main, .slide, .screen__body) > .html-embed:has(.w-cg) {
+    --wide: min(1400px, calc(100vw - 48px));
+    width: var(--wide);
+    margin-inline: calc((100% - var(--wide)) / 2);
+  }
+  :is(main, .slide, .screen__body) > .html-embed:has(.w-cg) > figcaption { max-width: min(1100px, 100%); margin-inline: auto; }
+  /* Exercise text is set in px on the page; scale it with the rest of the slide. */
+  .exercise .exercise__body { font-size: .85rem; }
+  .exercise .exercise__body :not(pre) > code, .exercise .astro-code, .exercise .astro-code code, .exercise .code-output pre { font-size: .72rem; }
+  .exercise .exercise__fold-detail, .exercise .exercise__solution-note { font-size: .78rem; }
+  .sidenote-wrapper { display: none !important; }
+  .slide--title { display: grid; align-content: center; }
+  .title-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 48px; align-items: center; }
+  .title-grid .session-header { width: auto; margin: 0; transform: none; }
+  .title-grid .session-header h1 { font-size: clamp(1.9rem, 3.2vw, 2.6rem); }
+  .qr { margin: 0; text-align: center; font-size: .8rem; color: var(--muted-color); }
+  .qr__code { width: 15rem; height: 15rem; background: #fff; }
+  .qr__code svg { display: block; width: 100%; height: 100%; }
+  .qr figcaption { margin-top: 10px; line-height: 1.4; }
+  .qr figcaption a { color: var(--text-color); overflow-wrap: anywhere; }
+  .hud {
+    position: fixed; left: 0; right: 0; bottom: 0; height: var(--hud-h); width: auto; margin: 0; transform: none;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px;
+    padding: 0 16px; border-top: 1px solid var(--border-color); border-bottom: 0;
+    background: var(--page-bg); font-size: .65rem; z-index: 10;
+  }
+  .slide > *, .slide header { transform: none; }
+  .session-header__date { color: var(--muted-color); }
+  .session-header__licence { color: var(--muted-color); font-size: .6rem; }
+  .hud__page { color: var(--muted-color); }
+  .hud__pos { text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  .hud__title { color: var(--muted-color); margin-left: 8px; }
+  :root { --ink-red: #d62728; --ink-blue: #1f6fb4; --ink-ink: #1d1d1f; --ink-highlighter: #ffd400; }
+  :root[data-theme="dark"] { --ink-red: #ff7b72; --ink-blue: #79c0ff; --ink-ink: #f2f2f2; --ink-highlighter: #ffe066; }
+  /* HUD button borders. The variable was used without being defined, which voided the
+     whole border declaration: no HUD button had a border. */
+  :root { --control-border-color: rgba(0, 0, 0, .3); }
+  :root[data-theme="dark"] { --control-border-color: rgba(255, 255, 255, .35); }
+  canvas.ink { position: fixed; left: 0; top: 0; width: 100%; height: calc(100% - var(--hud-h)); pointer-events: none; z-index: 5; }
+  /* Writing with the armed mouse: no text selection, a precise cursor. Unarmed, text stays
+     selectable; a stylus stroke never selects text (its pointerdown is consumed). */
+  body.inking main { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; cursor: crosshair; }
+  /* One row: the icon buttons and the text buttons share a centre line. */
+  .hud__nav { display: inline-flex; align-items: center; }
+  .hud__ink { display: inline-flex; margin-right: 10px; }
+  /* The theme button: the article header's moon/sun, showing the theme it switches to,
+     set apart from the ink tools. */
+  .hud__nav .hud__order { min-width: 0; padding: 0 10px; margin-right: 10px; font-size: .6rem; }
+  /* Pressed, the order button is outlined, not filled like an armed ink tool. */
+  .hud__nav .hud__order[aria-pressed="true"] { background: var(--page-bg); border-color: var(--heading-color); color: var(--heading-color); }
+  .hud__nav .hud__theme { display: inline-grid; place-items: center; margin-right: 16px; vertical-align: middle; }
+  .hud__theme svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .hud__theme .icon-sun, [data-theme="dark"] .hud__theme .icon-moon { display: none; }
+  [data-theme="dark"] .hud__theme .icon-sun { display: block; }
+  /* Ink tool icons, drawn like the theme button. The selected tool (the stylus's) is
+     outlined and tinted; pressed (the mouse writes with it too) it is filled. */
+  .hud__ink button { display: inline-grid; place-items: center; vertical-align: middle; }
+  .hud__icon { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .hud__icon-mark { stroke: var(--ink-highlighter); stroke-width: 3; }
+  .hud__nav button[data-selected] { border: 2px solid var(--ink-red); background: color-mix(in srgb, var(--ink-red) 14%, var(--page-bg)); }
+  .hud__nav button[aria-pressed="true"] { background: var(--ink-red); color: var(--ink-on-red); border-color: var(--ink-red); }
+  :root { --ink-on-red: #fff; }
+  :root[data-theme="dark"] { --ink-on-red: #1d1d1f; }
+  .hud__nav button {
+    min-width: 40px; min-height: 36px; margin-left: 6px; font: inherit; cursor: pointer;
+    border: 1px solid var(--control-border-color); border-radius: 4px; background: var(--page-bg); color: var(--text-color);
+  }
+  @media (max-width: 700px) {
+    .title-grid { grid-template-columns: minmax(0, 1fr); gap: 24px; justify-items: center; }
+    .title-grid .session-header { width: 100%; }
+    .qr__code { width: 11rem; height: 11rem; }
+    .hud__title { display: none; }
+  }
+  @media (max-height: 800px) and (min-width: 701px) {
+      .qr__code { width: 13rem; height: 13rem; }
+  }
+</style>

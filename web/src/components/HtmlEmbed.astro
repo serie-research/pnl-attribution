@@ -1,0 +1,25 @@
+---
+// <HtmlEmbed src="demo.html" data="demo.json" title="..." desc="..." alt="..." />
+// Trusted repository HTML only; scripts run inline. Data URLs include WEB_BASE.
+// `alt` is a text description read by assistive technology, not shown.
+import LazyEmbed from './LazyEmbed.astro';
+import heights from './embed-heights.json';
+interface Props { src: string; data: string; title: string; desc?: string; alt?: string; }
+const { src, data, title, desc, alt } = Astro.props;
+const embeds = import.meta.glob('../content/embeds/*.html', { query: '?raw', import: 'default', eager: true });
+const html = embeds[`../content/embeds/${src}`];
+if (!html) throw new Error(`Missing embed: ${src}`);
+const sizes = heights[data];
+if (!sizes) throw new Error(`Missing reserved heights for embed data: ${data}`);
+const height = sizes.at(-1)[1], narrowHeight = sizes[0][1];
+const altId = alt && `alt-${src.replace(/\.html$/, '')}`;
+---
+<figure class="html-embed" aria-describedby={altId}>
+  <figcaption><strong>{title}</strong>{desc && <p>{desc}</p>}</figcaption>
+  {alt && <p id={altId} class="html-embed__alt">{alt}</p>}
+  <LazyEmbed html={html} data={data} height={height} narrowHeight={narrowHeight} sizes={sizes} />
+</figure>
+
+<style>
+  .html-embed__alt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>

@@ -1,0 +1,64 @@
+import Optional from '../../../components/post/Optional.astro';
+
+This page reviews how finance and statistics attribute a trading P&L to signals
+and indicators. It also shows where the methods disagree and which open
+questions could become research projects.
+
+No desk data is used here. Every number comes from a published paper, a
+synthetic simulation or an illustrative example, and
+[Code and data](#code-and-data) links the code or summary output behind it. The
+page is written for people who work on or with an intraday trading desk
+(traders, quants and risk teams), and it assumes basic linear algebra and
+statistics.
+
+A desk that tracks spread, volatility, order flow, inventory and its own
+trading signals wants to know where its P&L comes from. A P&L decomposition
+assigns parts of that P&L to signals, positions and costs, so the desk can
+report what each one contributed. Whether to drop or resize a signal is a
+separate question, and it needs other quantities (sections 3.2 and 5.2).
+
+*Explaining* a P&L can mean two things. An explanation can point to an unusual
+market condition, such as a wide spread or high volume when losses occurred. It
+can also give each signal, position or cost its contribution to the P&L, as the
+accounting and allocation methods of sections 1–3 do. Section 4 treats a
+related question: what correlated indicators predict about the P&L.
+
+{/* @include i0-route */}
+
+A list of conditions tells the trader where to look without establishing a
+cause. Three problems separate such a list from a P&L attribution.
+
+**Amounts over an interval.** An attribution starts from an amount, positive
+or negative, accumulated over an interval, and it sizes the part of that amount
+that goes to each signal, position or cost.
+
+**Scores and currency.** Several indicators can each raise a useful alarm, but
+their scores are hit rates or classification rates, and rates do not add up to
+a P&L in currency. Contributions that sum to the P&L need a specified total,
+compatible units and a residual for the amount that remains unallocated.
+
+**Overlap.** Volume, volatility and spread indicators often pick out the same
+episode. If each indicator receives credit for the whole episode, the episode
+is counted more than once. If only the strongest indicator counts, the other
+indicators receive nothing, so a rule is needed to share the information.
+
+The sections are ordered by these problems rather than by date. Benchmark and
+factor methods come first, then signals and correlated indicators, and research
+projects close the page.
+
+Common desk questions and where the page answers them:
+
+- [How can we attribute P&L without the optimiser's equations?](#31-stand-alone-portfolios-as-proxies)
+- [How do we separate correlated indicators?](#4-correlated-indicators-and-the-value-of-a-subset)
+- [What changes between ex ante and ex post attribution?](#12-information-and-accounting-interval)
+- [How are trading costs allocated?](#cost-allocation)
+- [How does a market maker's P&L split into spread and inventory?](#25-spread-and-inventory-a-market-makers-pl)
+- What data do we need to start? ([fill records](#ledger-data), [signals](#signal-data))
+
+The figures are interactive. Margin notes give the table or equation to read in
+each paper, and collapsible blocks marked *Optional* hold the derivations. The
+simulation code is a collapsed notebook in section 3.5, and the
+[citation graph](#citation-graph) at the end shows the papers we read and how
+they cite each other.
+
+[↑ Sections](#)

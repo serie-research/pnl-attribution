@@ -1,0 +1,206 @@
+<div class="f7-correlated">
+<div class="question">
+  <label for="f7-alike">How alike are the two indicators? <output></output></label>
+  <input id="f7-alike" type="range" min="0" max="2" step="1" value="2">
+  <div class="marks" aria-hidden="true"><span>unrelated</span><span>fairly alike</span><span>very alike</span></div>
+</div>
+<div class="panels">
+  <div class="panel coef">
+    <h4>What the regression gives each indicator</h4>
+    <svg class="dots" tabindex="0" role="img" aria-label="One dot per simulated data set: coefficient of indicator A against coefficient of indicator B. Use the arrow keys to step through the data sets."></svg>
+    <p class="range-label">Coefficient of A over the 192 data sets</p>
+    <p class="range-value"></p>
+    <p class="negatives"></p>
+    <p class="note">The true value is 1 for each. As the indicators become alike, the dots stretch along the dashed line: the two still add up to about 2, but what one gains, the other loses.</p>
+  </div>
+  <div class="panel shares">
+    <h4>What Shapley gives each indicator</h4>
+    <svg class="bars" role="img" aria-label="One bar per simulated data set: the part of what the two indicators explain that Shapley gives to A and to B."></svg>
+    <p class="range-label">A's part over the 192 data sets</p>
+    <p class="range-value"></p>
+    <p class="negatives" aria-hidden="true">&nbsp;</p>
+    <p class="note">Each bar is one data set, split between A and B. When the indicators are unrelated, each split follows that data set's fit; as they become alike, every split settles at about half each.</p>
+  </div>
+</div>
+<div class="tip" hidden></div>
+<p class="status" role="status" aria-live="polite"></p>
+</div>
+<style>
+.f7-correlated { position:relative; padding:16px; border:1px solid var(--border-color); border-radius:10px; background:var(--surface-bg); color:var(--text-color); font:14px/1.5 var(--default-font-family, sans-serif); }
+.f7-correlated p { margin:0; }
+.f7-correlated .question label { font-weight:600; }
+.f7-correlated .question output { display:inline; margin-left:6px; color:var(--primary-color); }
+.f7-correlated .question input { display:block; width:100%; margin:6px 0 2px; }
+.f7-correlated .marks { display:flex; justify-content:space-between; gap:8px; font-size:13px; color:var(--muted-color); }
+.f7-correlated .panels { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:20px 28px; margin-top:16px; }
+.f7-correlated .panel { min-width:0; }
+.f7-correlated h4 { margin:0 0 6px; font-size:15px; }
+.f7-correlated svg { display:block; width:100%; height:auto; overflow:visible; }
+.f7-correlated svg text { fill:var(--text-color); font:13px sans-serif; }
+.f7-correlated .axis path, .f7-correlated .axis line { stroke:var(--axis-color, var(--muted-color)); }
+.f7-correlated .dots { outline:none; border-radius:4px; }
+.f7-correlated .dots:focus-visible { box-shadow:0 0 0 2px var(--primary-color); }
+.f7-correlated .dot { fill:var(--muted-color); opacity:.5; }
+.f7-correlated .truth-halo { stroke:var(--surface-bg, #fff); stroke-width:6; stroke-linecap:round; }
+.f7-correlated .dot.active { fill:var(--text-color); opacity:1; stroke:var(--surface-bg, #fff); stroke-width:1.5; }
+.f7-correlated .sum-line { stroke:var(--text-color); stroke-width:1.2; stroke-dasharray:5 4; }
+.f7-correlated .truth { stroke:var(--text-color); stroke-width:2.5; }
+.f7-correlated .part-a { fill:var(--info-color); }
+.f7-correlated .part-b { fill:var(--primary-color); }
+.f7-correlated .half { stroke:var(--text-color); stroke-width:1.5; stroke-dasharray:4 3; }
+.f7-correlated .row-mark { fill:none; stroke:var(--text-color); stroke-width:2; }
+.f7-correlated .label-a { fill:var(--info-color); font-weight:700; }
+.f7-correlated .label-b { fill:var(--primary-color); font-weight:700; }
+.f7-correlated .range-label { margin-top:8px; font-size:13px; color:var(--muted-color); }
+.f7-correlated .range-value { font-size:30px; white-space:nowrap; font-weight:700; line-height:1.15; font-variant-numeric:tabular-nums; }
+.f7-correlated .negatives { font-size:13px; min-height:1.5em; }
+.f7-correlated .note { margin-top:6px; font-size:13px; }
+.f7-correlated .tip { position:absolute; z-index:2; max-width:240px; padding:5px 8px; font-size:13px; line-height:1.4; pointer-events:none; color:var(--text-color); background:var(--page-bg); border:1px solid var(--border-color); border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.15); }
+.f7-correlated .tip div:first-child { font-weight:600; }
+.f7-correlated .status { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.f7-correlated .error { position:static; width:auto; height:auto; clip-path:none; white-space:normal; color:var(--danger-color); }
+@media (max-width: 600px) { .f7-correlated .panels { grid-template-columns:1fr; } }
+</style>
+<script>
+(() => {
+  const root = document.currentScript.closest('[data-embed]');
+  const box = root.querySelector('.f7-correlated');
+  const input = box.querySelector('input[type=range]');
+  const output = box.querySelector('output');
+  const status = box.querySelector('.status');
+  const tip = box.querySelector('.tip');
+  const dotsSvg = box.querySelector('.dots'), barsSvg = box.querySelector('.bars');
+  const names = ['unrelated', 'fairly alike', 'very alike'];
+  const num = v => v.toFixed(2).replace('-', '−');
+  const pct = v => `${Math.round(100*v)}%`;
+  d3.json(root.dataset.url).then(data => {
+    const n = data.repeats;
+    const describe = level => `${names[level]} (correlation ${data.rows[level].rho.toFixed(2)})`;
+    // Fixed scales across the slider: dots and bars move, the axes do not.
+    const betas = data.rows.flatMap(r => r.pairs.flatMap(p => [p.beta1, p.beta2]));
+    const coefDomain = d3.scaleLinear().domain(d3.extent(betas)).nice().domain();
+    let selected = null, width = 0, current = null, scales = null;
+
+    function samples(level) {
+      return data.rows[level].pairs.map((p, i) => ({i, a:p.beta1, b:p.beta2, share:p.shapley1/(p.shapley1+p.shapley2)}));
+    }
+
+    function showTip(i) {
+      const d = current[i];
+      tip.replaceChildren(...[`Data set ${i+1}`, `Coefficients: A ${num(d.a)}, B ${num(d.b)}`, `Shapley: A ${pct(d.share)}, B ${pct(1-d.share)}`]
+        .map(t => Object.assign(document.createElement('div'), {textContent:t})));
+      tip.hidden = false;
+      const r = dotsSvg.getBoundingClientRect(), c = box.getBoundingClientRect(), k = r.width/width;
+      const x = r.left-c.left + k*scales.x(d.a), y = r.top-c.top + k*scales.y(d.b);
+      const tw = tip.offsetWidth, th = tip.offsetHeight;
+      tip.style.left = `${Math.max(4, Math.min(box.clientWidth-tw-4, x-tw/2))}px`;
+      tip.style.top = `${y-th-12 >= 0 ? y-th-12 : y+14}px`;
+    }
+    function select(i) {
+      selected = i;
+      dotsSvg.querySelectorAll('.dot').forEach(node => {
+        const on = +node.dataset.index === i;
+        node.classList.toggle('active', on); node.setAttribute('r', on ? 6 : 3);
+        if (on && node !== node.parentNode.lastChild) node.parentNode.appendChild(node);
+      });
+      const mark = barsSvg.querySelector('.row-mark');
+      if (i === null) { tip.hidden = true; mark.setAttribute('visibility', 'hidden'); return; }
+      const {y, bandHeight} = scales.bars;
+      mark.setAttribute('visibility', 'visible');
+      mark.setAttribute('y', y(i) + bandHeight/2 - 2.5);
+      showTip(i);
+    }
+
+    function draw() {
+      const level = Number(input.value);
+      output.value = describe(level);
+      input.setAttribute('aria-valuetext', describe(level));
+      current = samples(level);
+      width = dotsSvg.clientWidth;
+      const m = {top:24, right:10, bottom:40, left:42};
+      const side = Math.min(width - m.left - m.right, 320), height = side + m.top + m.bottom;
+      const x = d3.scaleLinear().domain(coefDomain).range([m.left, m.left+side]);
+      const y = d3.scaleLinear().domain(coefDomain).range([m.top+side, m.top]);
+
+      // Left: coefficient of A against coefficient of B, one dot per data set.
+      const svg = d3.select(dotsSvg).attr('viewBox', `0 0 ${width} ${height}`);
+      svg.selectAll('*').remove();
+      svg.append('g').attr('class','axis').attr('transform',`translate(0,${m.top+side})`).call(d3.axisBottom(x).ticks(5).tickSizeOuter(0));
+      svg.append('g').attr('class','axis').attr('transform',`translate(${m.left},0)`).call(d3.axisLeft(y).ticks(5).tickSizeOuter(0));
+      svg.append('text').attr('x', m.left+side).attr('y', height-4).attr('text-anchor','end').text('Coefficient of A →');
+      svg.append('text').attr('transform', `translate(12,${m.top}) rotate(-90)`).attr('text-anchor','end').text('Coefficient of B →');
+      const [lo, hi] = coefDomain, ends = [Math.max(lo, 2-hi), Math.min(hi, 2-lo)];
+      svg.append('line').attr('class','sum-line').attr('x1', x(ends[0])).attr('y1', y(2-ends[0])).attr('x2', x(ends[1])).attr('y2', y(2-ends[1]));
+      // Label the line near its lower-right end, where few dots fall, a few pixels above it.
+      const at = hi-.85, off = 12/Math.SQRT2;
+      svg.append('text').attr('transform', `translate(${x(at)+off},${y(2-at)-off}) rotate(${Math.atan2(y(2-at-1)-y(2-at), x(at+1)-x(at))*180/Math.PI})`)
+        .attr('text-anchor','start').text('A + B = 2');
+      svg.append('g').attr('class','points').selectAll('circle').data(current).join('circle')
+        .attr('class','dot').attr('data-index', d => d.i).attr('cx', d => x(d.a)).attr('cy', d => y(d.b)).attr('r', 2.5)
+        .on('pointerenter', (_, d) => select(d.i)).on('pointerleave', () => { if (document.activeElement !== dotsSvg) select(null); });
+      // The true values sit on top as a cross, so the tight cloud of unrelated indicators stays visible.
+      const t = svg.append('g').attr('class','truth-mark').attr('pointer-events','none');
+      for (const cls of ['truth-halo', 'truth']) {
+        t.append('line').attr('class', cls).attr('x1', x(1)-9).attr('x2', x(1)+9).attr('y1', y(1)).attr('y2', y(1));
+        t.append('line').attr('class', cls).attr('x1', x(1)).attr('x2', x(1)).attr('y1', y(1)-9).attr('y2', y(1)+9);
+      }
+      t.append('text').attr('x', x(1)+12).attr('y', y(1)-10).text('true values');
+
+      // Right: per data set, Shapley's split between A and B of what the two explain together.
+      const bw = barsSvg.clientWidth, bm = {top:24, right:10, bottom:40, left:10};
+      const bx = d3.scaleLinear().domain([0,1]).range([bm.left, bw-bm.right]);
+      // Side by side, the bars match the dot plot's height; stacked on a phone, they stay short.
+      const stacked = barsSvg.getBoundingClientRect().top > dotsSvg.getBoundingClientRect().bottom;
+      const barSide = stacked ? Math.min(side, 200) : side, barHeight = barSide + bm.top + bm.bottom;
+      const by = d3.scaleBand().domain(d3.range(n)).range([bm.top, bm.top+barSide]);
+      const bars = d3.select(barsSvg).attr('viewBox', `0 0 ${bw} ${barHeight}`);
+      bars.selectAll('*').remove();
+      bars.append('text').attr('class','label-a').attr('x', bm.left).attr('y', 15).text('A');
+      bars.append('text').attr('class','label-b').attr('x', bw-bm.right).attr('y', 15).attr('text-anchor','end').text('B');
+      bars.append('text').attr('x', bx(.5)).attr('y', 15).attr('text-anchor','middle').text('half each');
+      const rows = bars.append('g').attr('shape-rendering','crispEdges');
+      rows.selectAll('.part-a').data(current).join('rect').attr('class','part-a')
+        .attr('x', bx(0)).attr('y', d => by(d.i)).attr('width', d => bx(d.share)-bx(0)).attr('height', by.bandwidth()+.5);
+      rows.selectAll('.part-b').data(current).join('rect').attr('class','part-b')
+        .attr('x', d => bx(d.share)).attr('y', d => by(d.i)).attr('width', d => bx(1)-bx(d.share)).attr('height', by.bandwidth()+.5);
+      bars.append('line').attr('class','half').attr('x1', bx(.5)).attr('x2', bx(.5)).attr('y1', bm.top-4).attr('y2', bm.top+barSide+4);
+      bars.append('rect').attr('class','row-mark').attr('x', bx(0)-2).attr('width', bx(1)-bx(0)+4).attr('height', 5).attr('visibility','hidden');
+      bars.append('g').attr('class','axis').attr('transform',`translate(0,${bm.top+barSide+4})`)
+        .call(d3.axisBottom(bx).tickValues([0,.5,1]).tickFormat(d3.format('.0%')).tickSizeOuter(0));
+      bars.append('text').attr('x', bx(.5)).attr('y', barHeight-4).attr('text-anchor','middle').text("A's part of what the two explain");
+      bars.on('pointermove', event => {
+        const [, py] = d3.pointer(event), i = Math.floor((py-bm.top)/by.step());
+        if (i >= 0 && i < n) select(i);
+      }).on('pointerleave', () => { if (document.activeElement !== dotsSvg) select(null); });
+      scales = {x, y, bars:{y:by, bandHeight:by.bandwidth()}};
+
+      const coef = d3.extent(current, d => d.a), share = d3.extent(current, d => d.share);
+      const negatives = current.filter(d => d.a < 0 || d.b < 0).length;
+      box.querySelector('.coef .range-value').textContent = `${num(coef[0])} to ${num(coef[1])}`;
+      box.querySelector('.shares .range-value').textContent = `${pct(share[0])} to ${pct(share[1])}`;
+      box.querySelector('.coef .negatives').textContent = negatives
+        ? `In ${negatives} of them, one of the two comes out negative.` : 'None of them comes out negative.';
+      status.textContent = `Indicators ${describe(level)}: A's coefficient runs from ${num(coef[0])} to ${num(coef[1])} over ${n} data sets, `
+        + `and ${negatives} give one indicator a negative coefficient; Shapley gives A from ${pct(share[0])} to ${pct(share[1])} of what the two explain.`;
+      const sd = v => d3.deviation(current, v);
+      box.dataset.result = JSON.stringify({level, rho:data.rows[level].rho, n, coef, share, negatives, sdA:sd(d => d.a), sdSum:sd(d => d.a+d.b)});
+      if (selected !== null) select(selected);
+    }
+
+    // Keyboard: the dot plot takes focus once; arrow keys step through the data sets.
+    const widest = () => d3.maxIndex(current, d => Math.abs(d.a-d.b));
+    dotsSvg.addEventListener('focus', () => select(selected ?? widest()));
+    dotsSvg.addEventListener('blur', () => select(null));
+    dotsSvg.addEventListener('keydown', event => {
+      const step = {ArrowRight:1, ArrowDown:1, ArrowLeft:-1, ArrowUp:-1}[event.key];
+      if (event.key === 'Escape') { select(null); return; }
+      if (!step) return;
+      event.preventDefault();
+      select(((selected ?? widest()) + step + n) % n);
+    });
+    input.addEventListener('input', draw);
+    new ResizeObserver(() => { if (dotsSvg.clientWidth !== width) draw(); }).observe(box);
+    draw(); box.dataset.ready = 'true';
+  }).catch(error => { status.textContent = `Could not load figure: ${error.message}`; status.classList.add('error'); });
+})();
+</script>

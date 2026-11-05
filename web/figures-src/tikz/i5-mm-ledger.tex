@@ -1,0 +1,44 @@
+\documentclass[tikz,dvisvgm,border=1pt]{standalone}
+\input{common}
+% Same hypothetical one-share fill as section 2.5; fees charged once.
+\begin{document}
+\begin{tikzpicture}
+\ifnarrow
+  \def\span{270pt}
+\else
+  \def\span{390pt}
+\fi
+\node[anchor=west,title] at (0,135pt) {Buy one share: a hypothetical fill};
+% Midprice path and the execution price use one linear price scale.
+\draw[ink,line width=1.2pt] (0,100pt) -- (\span,100pt) -- (\span,0);
+\draw[muted,dashed] (75pt,100pt) -- (\span,100pt);
+\draw[muted,dashed] (75pt,60pt) -- (150pt,60pt);
+\fill[info] (75pt,100pt) circle (2.5pt);
+\fill[ink] (75pt,60pt) circle (3pt);
+\fill[primary] (\span,0) circle (2.5pt);
+\node[anchor=south west,small] at (0,104pt) {midprice before: 100.00};
+\node[anchor=north east,small,align=right] at (70pt,57pt) {fill price\\99.98};
+\node[anchor=north east,small] at (\span,-3pt) {later midprice: 99.95};
+% Brackets link price differences to their accounting components.
+\draw[info,decorate,decoration={brace,amplitude=4pt},thick]
+  (112pt,60pt) -- (112pt,100pt);
+\node[anchor=west,small,text=info,align=left] at (120pt,80pt) {net spread:\\subtract fees};
+\draw[primary,decorate,decoration={brace,amplitude=4pt},thick]
+  (\span+5pt,100pt) -- (\span+5pt,0);
+\node[anchor=east,small,text=primary] at (\span-5pt,30pt) {positioning};
+\draw[->,muted] (0,-38pt) -- (\span+10pt,-38pt) node[above left,small] {time};
+\draw[muted] (75pt,-38pt) -- ++(0,-4pt) node[below,small] {fill};
+\draw[muted] (\span,-38pt) -- ++(0,-4pt) node[below,small] {later};
+\node[anchor=north west,align=left,text=info] at (0,-76pt)
+  {Net spread = midprice before $-$ fill price $-$ fees\\
+   $100.00 - 99.98 - 0.01 = +0.01$};
+\node[anchor=north west,align=left,text=primary] at (0,-115pt)
+  {Positioning = later midprice $-$ midprice before\\
+   $99.95 - 100.00 = -0.05$};
+\node[anchor=north west,align=left,font=\basefont\bfseries] at (0,-154pt)
+  {P\&L after fees $= +0.01 - 0.05 = -0.04$};
+\node[anchor=north west,small,text=muted] at (0,-179pt)
+  {Amounts in euros. No rebate, hedge or liquidation cost.};
+\drawcard
+\end{tikzpicture}
+\end{document}

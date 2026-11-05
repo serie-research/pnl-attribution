@@ -1,0 +1,39 @@
+import HtmlEmbed from '../../../components/HtmlEmbed.astro';
+import WhatToNotice from '../../../components/post/WhatToNotice.astro';
+
+Choose a scenario, then switch allocation methods to follow each signal's
+cumulative net P&L. The endpoints below the paths are comparable across
+methods, because the portfolio is the same within a scenario.
+
+<HtmlEmbed src="d3-f13-pnl-paths.html" data="f13-pnl-paths.json" title="Net P&amp;L paths under each allocation" desc="These synthetic paths use one seed across four configurations. The thick line is the total portfolio. Dashed lines show residuals or the separate spread and position-limit portfolios." />
+
+Leave-one-out removes each signal and reruns the remaining portfolio at the
+same risk target. The Grinold–Easton spread and position-limit lines are
+attributed portfolios, each net of its allocated costs, so the spread line is
+not the cash spread paid.
+
+<WhatToNotice>
+
+With a spread of 2.0 std(G), slow A, fast B and slow B never trade alone,
+because their forecasts stay inside the no-trade band. Fast A trades alone on
+only four dates and ends with a small loss, and its P&L is slightly negatively
+correlated with the portfolio's, so any positive weight would worsen the
+least-squares fit. Both proxy methods therefore give zero to every signal and
+leave the whole P&L in the residual.
+
+Together, though, the signals clear the spread. This is the voting mechanism
+Durin describes (section 3.3), and his split gives the resulting P&L to all four
+signals on this path.
+
+With the tight position limit, Grinold–Easton's negative spread and
+position-limit portfolios offset large positive signal portfolios. Their sum
+tracks the same total as Durin's four signal paths, which include these
+effects. Under this limit the risk target is out of reach, and the two Shapley
+games give the same paths.
+
+At high innovation correlation, the iterated fit keeps only fast A and leaves a
+positive residual. The fit converges on that one proxy without recovering the
+other signals' contributions. The next figure repeats the comparison across
+seeds.
+
+</WhatToNotice>

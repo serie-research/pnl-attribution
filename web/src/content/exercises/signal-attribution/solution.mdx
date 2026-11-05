@@ -1,0 +1,1508 @@
+{/* Generated from signal-attribution.ipynb using nb2mdx.py rendering helpers. */}
+
+export const cells = 66;
+
+<details>
+<summary>Optimiser</summary>
+
+#### Reproduce the synthetic signal comparison
+
+Install `numpy scipy cvxpy clarabel`, then run the cells in order. The notebook is self-contained: it needs no checkout or download. NumPy handles the diagonal calculation; CVXPY with Clarabel handles a full covariance matrix. The reproduction cells check both published fixed-seed paths exactly. A separate small dense example checks what changes when assets are correlated.
+
+The formulas are those in section 3.3 and Bruno Durin's *Signal-wise performance attribution for constrained optimisation* (2014). Its equation numbers below make the code's conventions explicit. All values are synthetic. The fixed-seed examples are not the comparison tables' averages across 20 seeds.
+
+```python
+from dataclasses import dataclass
+from math import factorial
+import numpy as np
+from scipy.optimize import nnls
+import cvxpy as cp
+import warnings
+solver_events = []
+```
+
+#### 1. Optimiser
+
+`Desk` holds the signal coefficients, persistence, cost scales and position bounds. `covariance` returns either the identity matrix or a one-factor covariance with unit diagonal. The static problem uses $\Lambda=\lambda\Sigma$ (section 3.3; Durin Eq. 7), so this compact example supports a general covariance matrix but does not expose an independent cost matrix. `gamma_ref`, `lam` and `lam0` keep the published scaling conventions.
+
+```python
+@dataclass(frozen=True)
+class Desk:
+    n_assets: int = 50
+    n_periods: int = 1000
+    names: tuple = ("fast A", "slow A", "fast B", "slow B")
+    ic: tuple = (0.06, 0.05, 0.04, 0.03)
+    rho: tuple = (0.5, 0.95, 0.5, 0.95)
+    corr: float = 0.3
+    risk_target: float = 1.0
+    box: float = 1.5
+    lam_rel: float = 1.0
+    spread_rel: float = 0.5
+    cov: str = "diag"
+    long_only: bool = False
+    factor_share: float = 0.3
+
+    def sigma2(self):
+        return np.ones(self.n_assets)
+
+    def innovation_corr(self):
+        C = np.full((len(self.ic), len(self.ic)), float(self.corr))
+        np.fill_diagonal(C, 1.0)
+        return C
+
+    def g_std(self):
+        rho = np.asarray(self.rho, float)
+        a = np.sqrt(1 - rho**2)
+        S = self.innovation_corr() * np.outer(a, a) / (1 - np.outer(rho, rho))
+        b = np.asarray(self.ic, float)
+        return float(np.sqrt(b @ S @ b))
+
+    def gamma_ref(self):
+        return np.sqrt(self.n_assets) * self.g_std() / self.risk_target
+
+    def lam(self):
+        return self.lam_rel * self.gamma_ref()
+
+    def lam0(self):
+        return self.spread_rel * self.g_std()
+
+    def bounds(self):
+        hi = np.full(self.n_assets, self.box * self.risk_target / np.sqrt(self.n_assets))
+        return (np.zeros(self.n_assets) if self.long_only else -hi), hi
+
+    def factor_model(self):
+        beta = np.linspace(0.8, 1.2, self.n_assets)
+        f = np.sqrt(self.factor_share) * beta
+        return f, 1.0 - f**2
+
+    def covariance(self):
+        if self.cov == "diag":
+            return np.diag(self.sigma2())
+        f, s2 = self.factor_model()
+        return np.outer(f, f) + np.diag(s2)
+```
+
+`simulate` generates all AR(1) innovations, then all return noise, in the published order. Returns equal the sum of forecast components plus noise (Durin Eqs. 1–4). The initial scores use the first innovations, leaving a small cross-correlation transient for mixed persistence. The dense example draws its factor noise before its idiosyncratic noise.
+
+```python
+def simulate(desk, seed):
+    rng = np.random.default_rng(seed)
+    K, T, N = len(desk.ic), desk.n_periods, desk.n_assets
+    rho = np.asarray(desk.rho, float)[:, None]
+    L = np.linalg.cholesky(desk.innovation_corr() + 1e-12 * np.eye(K))
+    e = np.einsum("kl,ltn->ktn", L, rng.standard_normal((K, T, N)))
+    z = np.empty((K, T, N))
+    z[:, 0] = e[:, 0]
+    a = np.sqrt(1 - rho**2)
+    for t in range(1, T):
+        z[:, t] = rho * z[:, t - 1] + a * e[:, t]
+    if desk.cov == "diag":
+        u = rng.standard_normal((T, N))
+    else:
+        f, s2 = desk.factor_model()
+        u = rng.standard_normal((T, 1)) * f + rng.standard_normal((T, N)) * np.sqrt(s2)
+    g = np.asarray(desk.ic, float)[:, None, None] * z
+    return g, g.sum(0) + u
+```
+
+`Solution` stores positions, trades, risk aversion, spread subgradients and signed box multipliers. For CVXPY runs, `dual_upper`, `dual_lower` and `primal_raw` retain the solver outputs. In particular, `nu` remains the raw upper-minus-lower dual; it is not overwritten to force attribution sums.
+
+```python
+@dataclass
+class Solution:
+    """Path of the algorithm for a batch of B runs."""
+    x: np.ndarray
+    dx: np.ndarray
+    gamma: np.ndarray
+    s: np.ndarray
+    nu: np.ndarray
+    at_bound: np.ndarray
+    dual_upper: np.ndarray | None = None
+    dual_lower: np.ndarray | None = None
+    primal_raw: np.ndarray | None = None
+    diagnostics: dict | None = None
+```
+
+`_bcast_bounds` repeats the same position bounds for each batched run (Durin Eq. 15).
+
+```python
+def _bcast_bounds(lo, hi, B, N):
+    lo = np.broadcast_to(np.asarray(lo, float), (B, N))
+    hi = np.broadcast_to(np.asarray(hi, float), (B, N))
+    return (lo, hi)
+```
+
+`_trade_diag` is the diagonal closed form: soft-threshold the trade and clip the position (section 3.3; Durin Eqs. 50–51).
+
+```python
+def _trade_diag(G, xp, gamma, sig2, lam, lam0, lo, hi):
+    """Closed-form optimal position for given gamma (B,) (Durin Eqs. 50-51, p. 17)."""
+    g = gamma[:, None]
+    q = (lam + g) * sig2
+    z = G - g * sig2 * xp
+    dstar = np.sign(z) * np.maximum(np.abs(z) - lam0, 0.0) / q
+    xu = xp + dstar
+    return (np.clip(xu, lo, hi), xu, z, q)
+```
+
+`solve_diag` uses 32 bisection steps on log risk aversion. It retains the published floor $10^{-8}\gamma_{ref}$ when the target is out of reach. A fixed risk-aversion path skips this search. This fast implementation is retained for exact parity with the published paths.
+
+```python
+def solve_diag(desk: Desk, G: np.ndarray, sigma_target: np.ndarray | None=None, gamma_path: np.ndarray | None=None, lo: np.ndarray | None=None, hi: np.ndarray | None=None, n_bisect: int=32) -> Solution:
+    """Run A on a batch of combined signals G (B, T, N), diagonal Sigma."""
+    (B, T, N) = G.shape
+    sig2 = desk.sigma2()
+    (lam, lam0) = (desk.lam(), desk.lam0())
+    if lo is None or hi is None:
+        (lo, hi) = desk.bounds()
+    (lo, hi) = _bcast_bounds(lo, hi, B, N)
+    x = np.zeros((B, T, N))
+    gam = np.zeros((B, T))
+    xp = np.zeros((B, N))
+    g_ref = desk.gamma_ref()
+    (g_min, g_max) = (1e-08 * g_ref, 100000000.0 * g_ref)
+    g_prev = np.full(B, g_ref)
+    if sigma_target is not None:
+        tgt2 = np.broadcast_to(np.asarray(sigma_target, float), (B,)) ** 2
+
+    def risk2(gm):
+        xx = _trade_diag(G[:, t], xp, gm, sig2, lam, lam0, lo, hi)[0]
+        return (sig2 * xx ** 2).sum(1)
+    for t in range(T):
+        if gamma_path is not None:
+            gm = gamma_path[:, t]
+        else:
+            a = np.maximum(g_prev / 30, g_min)
+            b = np.minimum(g_prev * 30, g_max)
+            for _ in range(10):
+                low_a = risk2(a) < tgt2
+                a = np.where(low_a & (a > g_min), np.maximum(a / 1000.0, g_min), a)
+                high_b = risk2(b) > tgt2
+                b = np.where(high_b & (b < g_max), np.minimum(b * 1000.0, g_max), b)
+                if not ((low_a & (a > g_min)).any() or (high_b & (b < g_max)).any()):
+                    break
+            (la, lb) = (np.log(a), np.log(b))
+            for _ in range(n_bisect):
+                m = 0.5 * (la + lb)
+                above = risk2(np.exp(m)) > tgt2
+                la = np.where(above, m, la)
+                lb = np.where(above, lb, m)
+            gm = np.exp(0.5 * (la + lb))
+            gm = np.where(risk2(a) < tgt2, a, gm)
+            g_prev = gm
+        x[:, t] = _trade_diag(G[:, t], xp, gm, sig2, lam, lam0, lo, hi)[0]
+        gam[:, t] = gm
+        xp = x[:, t]
+    return _multipliers_diag(desk, G, x, gam, lo, hi)
+```
+
+`_multipliers_diag` recovers the diagonal spread subgradient and signed box multiplier from the optimality equation (section 3.3; Durin Eqs. 17, 21). These are closed-form multipliers, not outputs of CVXPY.
+
+```python
+def _multipliers_diag(desk, G, x, gam, lo, hi) -> Solution:
+    """Recover s and nu from the KKT equation given positions and gamma."""
+    sig2 = desk.sigma2()
+    (lam, lam0) = (desk.lam(), desk.lam0())
+    xp = np.concatenate([np.zeros_like(x[:, :1]), x[:, :-1]], axis=1)
+    dx = x - xp
+    g = gam[:, :, None]
+    q = (lam + g) * sig2
+    z = G - g * sig2 * xp
+    dstar = np.sign(z) * np.maximum(np.abs(z) - lam0, 0.0) / q
+    xu = xp + dstar
+    at_bound = (xu > hi[:, None]) | (xu < lo[:, None])
+    if lam0 > 0:
+        s = np.where(dx != 0, np.sign(dx), np.clip(z / lam0, -1.0, 1.0))
+    else:
+        s = np.zeros_like(dx)
+    nu = np.where(at_bound, z - q * dx - lam0 * s, 0.0)
+    return Solution(x=x, dx=dx, gamma=gam, s=s, nu=nu, at_bound=at_bound)
+```
+
+`solve_cvxpy` solves the same static problem with a dense covariance (Durin Eqs. 5, 7, 15, 19). In risk-target mode the risk constraint's dual is $\mu$, so $\gamma=2\mu$. In fixed-$\gamma$ mode it enters the objective directly.
+
+Clarabel tolerances match the study. Trades and positions within $10^{-6}\sigma^*/\sqrt N$ of zero or a bound are snapped, as in the study; the raw primal values remain available. The solver's box duals remain untouched. Nonzero trades use their actual sign; at zero trades the KKT residual selects a spread subgradient in $[-1,1]$. Numerical KKT and attribution discrepancies are measured below, rather than removed by reconstructing box multipliers. This compact solver requires finite box bounds.
+
+If Clarabel fails while reusing solver state, retry the identical problem once from a cold start, with the same tolerances. Retry events and solver warnings are retained and printed; a second failure stops execution. Warning messages are recorded without local file paths.
+
+Finite bounds also provide a rigorous risk bound. Put $m_i=\max(|lo_i|,|hi_i|)$. Every feasible position satisfies $x^\top\Sigma x\leq m^\top|\Sigma|m$. If the requested squared risk target exceeds this bound, its constraint is redundant. We solve the same problem with $\gamma=0$ and omit the redundant inequality, whose dual may be chosen as zero. This exact constraint elimination avoids a poorly scaled, enormous right-hand side; it does not cap targets or alter their updates.
+The redundant-risk check uses the bound $x^\top\Sigma x\leq m^\top|\Sigma|m$,
+where $m_i=\max(|l_i|,|u_i|)$. This inequality justifies removing the constraint;
+the huge-target versus zero-gamma test below checks branch equivalence, not an
+independent solver oracle.
+
+
+```python
+def solve_cvxpy(desk, G, sigma_target=None, gamma_path=None, lo=None, hi=None,
+                snap_tolerance=1e-6):
+    """Dense static optimisation; retain raw primal values and box duals."""
+    B, T, N = G.shape
+    Sigma = desk.covariance()
+    lam, spread = desk.lam(), desk.lam0()
+    if lo is None or hi is None:
+        lo, hi = desk.bounds()
+    lo, hi = _bcast_bounds(lo, hi, B, N)
+    if not (np.isfinite(lo).all() and np.isfinite(hi).all()):
+        raise ValueError("This compact CVXPY example requires finite position bounds.")
+    dxv, xv = cp.Variable(N), cp.Variable(N)
+    linear, previous = cp.Parameter(N), cp.Parameter(N)
+    qscale, risk_squared = cp.Parameter(nonneg=True), cp.Parameter(nonneg=True)
+    lower, upper = cp.Parameter(N), cp.Parameter(N)
+    upper_constraint, lower_constraint = xv <= upper, xv >= lower
+    constraints = [xv - dxv == previous, upper_constraint, lower_constraint]
+    risk_constraint = cp.quad_form(xv, Sigma) <= risk_squared
+    objective = cp.Maximize(linear @ dxv - 0.5 * qscale * cp.quad_form(dxv, Sigma)
+                            - spread * cp.norm1(dxv))
+    risk_problem = cp.Problem(objective, constraints + [risk_constraint])
+    gamma_problem = cp.Problem(objective, constraints)
+    shape = (B, T, N)
+    x, raw, trades = np.zeros(shape), np.zeros(shape), np.zeros(shape)
+    upper_dual, lower_dual = np.zeros(shape), np.zeros(shape)
+    gamma = np.zeros((B, T))
+    at_bound = np.zeros(shape, dtype=bool)
+    statuses = np.empty((B, T), dtype=object)
+    solver_iterations = np.zeros((B, T), dtype=int)
+    equality_error = np.zeros((B, T))
+    snap = snap_tolerance * desk.risk_target / np.sqrt(N)
+    for b in range(B):
+        maximum_position = np.maximum(np.abs(lo[b]), np.abs(hi[b]))
+        variance_bound = maximum_position @ np.abs(Sigma) @ maximum_position
+        risk_required = gamma_path is None and float(sigma_target[b])**2 < variance_bound
+        xp = np.zeros(N)
+        for t in range(T):
+            previous.value, lower.value, upper.value = xp, lo[b], hi[b]
+            if risk_required:
+                linear.value, qscale.value = G[b, t], lam
+                risk_squared.value = float(sigma_target[b])**2
+                problem = risk_problem
+            else:
+                gm = 0.0 if gamma_path is None else float(gamma_path[b, t])
+                linear.value = G[b, t] - gm * (Sigma @ xp)
+                qscale.value = lam + gm
+                problem = gamma_problem
+            options = dict(solver="CLARABEL", tol_gap_abs=1e-10,
+                           tol_gap_rel=1e-10, tol_feas=1e-10, tol_ktratio=1e-8)
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                try:
+                    problem.solve(**options)
+                except cp.error.SolverError:
+                    solver_events.append(dict(event="cold retry", run=b, period=t,
+                                              risk_target=(None if gamma_path is not None
+                                                           else float(sigma_target[b]))))
+                    try:
+                        problem.solve(**options, warm_start=False)
+                    except cp.error.SolverError as error:
+                        target = None if gamma_path is not None else float(sigma_target[b])
+                        raise RuntimeError(
+                            f"Clarabel failed after cold retry: run={b}, period={t}, "
+                            f"risk_target={target}; {error}") from None
+            for warning in caught:
+                solver_events.append(dict(event="solver warning", message=str(warning.message)))
+            if problem.status not in ("optimal", "optimal_inaccurate"):
+                raise RuntimeError(f"Clarabel status: {problem.status}")
+            if risk_required:
+                gm = 2 * float(np.asarray(risk_constraint.dual_value).item())
+            statuses[b, t] = problem.status
+            solver_iterations[b, t] = problem.solver_stats.num_iters
+            equality_error[b, t] = np.max(np.abs(xv.value - dxv.value - xp))
+            raw[b, t] = xv.value
+            delta = np.where(np.abs(dxv.value) < snap, 0.0, dxv.value)
+            xt = xp + delta
+            on_hi, on_lo = np.abs(xt - hi[b]) < snap, np.abs(xt - lo[b]) < snap
+            xt = np.where(on_hi, hi[b], np.where(on_lo, lo[b], xt))
+            x[b, t], trades[b, t], gamma[b, t] = xt, xt - xp, gm
+            upper_dual[b, t] = upper_constraint.dual_value
+            lower_dual[b, t] = lower_constraint.dual_value
+            at_bound[b, t] = on_hi | on_lo
+            xp = xt
+    nu = upper_dual - lower_dual
+    # Use actual trade signs. At zero trades, choose a subgradient in [-1, 1]
+    # from the KKT residual, leaving the solver's box duals unchanged.
+    w = G - lam * trades @ Sigma - gamma[:, :, None] * (x @ Sigma) - nu
+    s = (np.where(trades != 0, np.sign(trades), np.clip(w / spread, -1, 1))
+         if spread > 0 else np.zeros_like(trades))
+    risk = np.sqrt(np.einsum("bti,ij,btj->bt", x, Sigma, x))
+    raw_risk = np.sqrt(np.einsum("bti,ij,btj->bt", raw, Sigma, raw))
+    stationarity = w - spread * s
+    diagnostics = dict(status=statuses, solver_iterations=solver_iterations,
+                       risk=risk, raw_risk=raw_risk, equality_error=equality_error,
+                       stationarity_error=np.max(np.abs(stationarity), axis=-1),
+                       box_violation=np.maximum(0, np.maximum(
+                           raw - hi[:, None], lo[:, None] - raw)).max(axis=-1),
+                       snap_change=np.max(np.abs(raw - x), axis=-1))
+    return Solution(x, trades, gamma, s, nu, at_bound,
+                    upper_dual, lower_dual, raw, diagnostics)
+```
+
+`solve` selects the diagonal closed form or CVXPY. All rerun methods below use this same entry point.
+
+```python
+def solve(desk, G, **options):
+    return (solve_diag if desk.cov == "diag" else solve_cvxpy)(desk, G, **options)
+```
+
+#### Diagonal oracle
+
+This repeats the study's diagonal-oracle configuration: 8 assets, 30 periods, box 1, spread 0.8, seed 3. The declared study tolerances are positions $10^{-5}$ absolute, box multipliers $10^{-4}$ absolute, and active risk aversion $10^{-3}$ relative. CVXPY's inactive risk dual tends to zero; the closed form retains its floor, so inactive risk aversion is reported separately.
+
+The first configuration has no active risk periods. A second case keeps the same seed and dimensions but uses box 1.5 to exercise active risk duals. At a zero trade on a position bound, spread and box multipliers are not separately identified: the raw solver box dual can differ from the closed form while their combined force agrees. We print the full raw discrepancy, compare raw duals where the trade is nonzero, and separately compare the study's explicitly reconstructed spread-first convention. The raw duals used elsewhere remain unchanged.
+
+Risk aversion is also non-unique when the portfolio remains on the risk sphere without a resolved trade: the spread subgradient can offset a range of risk multipliers. We print that disagreement too. The relative gamma assertion uses active periods with a trade larger than the solver's declared snapping scale on an unbounded coordinate with nonzero position, and requires this mask to be nonempty in the box-1.5 case. This is an identifiability restriction, not a larger tolerance.
+
+```python
+for box in (1.0, 1.5):
+    oracle = Desk(n_assets=8, n_periods=30, box=box, spread_rel=0.8)
+    g, r = simulate(oracle, 3)
+    G = g.sum(0)[None]
+    diagonal = solve_diag(oracle, G, sigma_target=np.array([1.0]))
+    convex = solve_cvxpy(oracle, G, sigma_target=np.array([1.0]))
+    active = diagonal.gamma[0] > 1e-6 * oracle.gamma_ref()
+    resolved_trade = np.abs(diagonal.dx) > 1e-6 * oracle.risk_target / np.sqrt(oracle.n_assets)
+    identifiable = resolved_trade
+    risk_identifiable = active & np.any(
+        resolved_trade[0] & ~diagonal.at_bound[0]
+        & (np.abs(diagonal.x[0]) > 1e-6 * oracle.risk_target / np.sqrt(oracle.n_assets)), axis=1)
+    assert identifiable.any()
+    np.testing.assert_allclose(convex.x, diagonal.x, atol=1e-5)
+    np.testing.assert_allclose(convex.nu[identifiable], diagonal.nu[identifiable], atol=1e-4)
+    np.testing.assert_allclose(convex.gamma[0, risk_identifiable], diagonal.gamma[0, risk_identifiable], rtol=1e-3)
+    if box > 1:
+        assert risk_identifiable.any(), "Risk-dual comparison must be non-vacuous"
+    # Explicitly reproduce the study's spread-first convention for comparison.
+    # This diagnostic does not overwrite convex.nu or its raw dual arrays.
+    w = G - oracle.lam() * convex.dx - convex.gamma[:, :, None] * convex.x
+    convention_s = np.where(convex.dx != 0, np.sign(convex.dx),
+                            np.clip(w / oracle.lam0(), -1, 1))
+    convention_nu = np.where(convex.at_bound, w - oracle.lam0() * convention_s, 0)
+    np.testing.assert_allclose(convention_nu, diagonal.nu, atol=1e-4)
+    fixed = solve_cvxpy(oracle, G, gamma_path=diagonal.gamma)
+    np.testing.assert_allclose(fixed.x, diagonal.x, atol=1e-5)
+    print(f"Oracle box={box}; active risk periods={active.sum()}")
+    print("Unidentified box coordinates:", int((~identifiable).sum()))
+    print("Active risk periods with identifiable gamma:", int(risk_identifiable.sum()))
+    if active.any():
+        print("Raw active gamma max absolute difference (including periods not identified by this test):",
+              np.max(np.abs(convex.gamma[0, active] - diagonal.gamma[0, active])))
+    print("Maximum position error:", np.max(np.abs(convex.x - diagonal.x)))
+    print("Raw box-dual error, all coordinates:", np.max(np.abs(convex.nu - diagonal.nu)))
+    print("Raw box-dual error, identifiable coordinates:",
+          np.max(np.abs(convex.nu[identifiable] - diagonal.nu[identifiable])))
+    print("Study-convention box-dual error:", np.max(np.abs(convention_nu - diagonal.nu)))
+    print("Maximum fixed-gamma position error:", np.max(np.abs(fixed.x - diagonal.x)))
+    print("Maximum raw-to-snapped position change:", np.max(np.abs(convex.primal_raw - convex.x)))
+    if risk_identifiable.any():
+        print("Identifiable active gamma max relative error:", np.max(np.abs(
+            convex.gamma[0, risk_identifiable] / diagonal.gamma[0, risk_identifiable] - 1)))
+    if (~active).any():
+        print("Inactive gamma, CVXPY max / diagonal floor:",
+              convex.gamma[0, ~active].max(), 1e-8 * oracle.gamma_ref())
+print("PASS: positions, identifiable active risk duals, identifiable raw box duals and study-convention box duals")
+print("Solver events:", solver_events)
+solver_events.clear()
+```
+
+```text
+Oracle box=1.0; active risk periods=0
+Unidentified box coordinates: 208
+Active risk periods with identifiable gamma: 0
+Maximum position error: 8.693970349193947e-09
+Raw box-dual error, all coordinates: 0.0938566251796392
+Raw box-dual error, identifiable coordinates: 4.006360382335927e-09
+Study-convention box-dual error: 4.005961229402999e-09
+Maximum fixed-gamma position error: 1.9367057402241983e-09
+Maximum raw-to-snapped position change: 8.329894583113052e-09
+Inactive gamma, CVXPY max / diagonal floor: 0.0 3.2756529752049163e-09
+Oracle box=1.5; active risk periods=26
+Unidentified box coordinates: 152
+Active risk periods with identifiable gamma: 22
+Raw active gamma max absolute difference (including periods not identified by this test): 0.07429351985869384
+Maximum position error: 6.956109848826886e-07
+Raw box-dual error, all coordinates: 0.10709899976812781
+Raw box-dual error, identifiable coordinates: 8.28780995165701e-07
+Study-convention box-dual error: 6.768218758224087e-07
+Maximum fixed-gamma position error: 7.985581536917863e-06
+Maximum raw-to-snapped position change: 1.2514183911349619e-08
+Identifiable active gamma max relative error: 7.426598902293691e-06
+Inactive gamma, CVXPY max / diagonal floor: 1.0608439388721236e-08 3.2756529752049163e-09
+PASS: positions, identifiable active risk duals, identifiable raw box duals and study-convention box duals
+Solver events: [{'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}, {'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}]
+```
+
+</details>
+
+<details>
+<summary>Durin</summary>
+
+#### 2. Durin attribution
+
+`effective_position_matrix` builds the general rank-one bound terms from vectors $v_c$. Write a position constraint as $\epsilon_c v_c^\top x\leq\epsilon_c M_c$, with signed bound $M_c$, orientation $\epsilon_c\in\{-1,1\}$ and non-negative solver dual $\lambda^c$. Then
+
+$$\eta_c=\frac{\epsilon_c\lambda^c}{2M_c},\qquad D_b=\sum_c2\eta_c v_cv_c^\top.$$
+
+This is section 3.3's signed-bound form of Durin Eq. 37. For the coordinate box, $v_c$ is a coordinate vector and the oriented dual is `nu`. Zero bounds cannot use this division; their limiting condition is imposed in `durin_matrix`. The matrix helper accepts general constraint directions, while this notebook's optimiser supplies coordinate bounds.
+
+```python
+def effective_position_matrix(vectors, signed_bounds, oriented_duals):
+    """Finite bound penalties: 2 eta_c v_c v_c.T; zero bounds handled separately."""
+    eta = oriented_duals / (2 * signed_bounds)
+    return vectors.T @ ((2 * eta)[:, None] * vectors)
+```
+
+`durin_matrix` forms the full matrices $\bar Q=(\lambda+\gamma)\Sigma+D_b+D_s$ and $\bar P=\gamma\Sigma+D_b$ (Durin Eqs. 30–31). On a nonzero joint trade, $\eta_s=\lambda_0/(2|\Delta x|)$ and $D_s=\operatorname{diag}(2\eta_s)$ (Eq. 48).
+
+Each signal solves $\bar Q\Delta x^k=g^k-\bar P x^k_{t-1}$. Zero joint trades impose $\Delta x^k=0$ (Eq. 54); a binding zero position imposes $x^k=0$ (Eq. 44). The remaining coordinates solve the reduced matrix equation, including their covariance with the fixed coordinates. This is a matrix solve, not an asset-by-asset diagonal formula.
+
+Spread penalties act on trades and enter only $\bar Q$; position penalties act on the new position and enter both $\bar Q$ and $\bar P$.
+
+The zero-trade limit applies only with positive spread. With zero spread, opposite component trades may cancel; the ordinary matrix recursion must retain them.
+
+```python
+def durin_matrix(desk, sol, g, b=0):
+    K, T, N = g.shape
+    Sigma, lam, spread = desk.covariance(), desk.lam(), desk.lam0()
+    xk, xp = np.zeros((K, T, N)), np.zeros((K, N))
+    coordinate_vectors = np.eye(N)
+    for t in range(T):
+        x, dx, nu = sol.x[b, t], sol.dx[b, t], sol.nu[b, t]
+        bound, gamma = sol.at_bound[b, t], sol.gamma[b, t]
+        zero_trade = (dx == 0) & (spread > 0)
+        zero_position = bound & (x == 0) & ~zero_trade
+        free = ~(zero_trade | zero_position)
+        finite_bound = free & bound
+        position_penalty = effective_position_matrix(
+            coordinate_vectors[finite_bound], x[finite_bound], nu[finite_bound])
+        eta_spread = np.zeros(N)
+        moving = free & (dx != 0)
+        eta_spread[moving] = spread / (2 * np.abs(dx[moving]))
+        Qbar = (lam + gamma) * Sigma + position_penalty + np.diag(2 * eta_spread)
+        Pbar = gamma * Sigma + position_penalty
+        delta = np.where(zero_position, -xp, 0.0)
+        indices = np.flatnonzero(free)
+        rhs = g[:, t, indices] - xp @ Pbar[indices].T - delta @ Qbar[indices].T
+        delta[:, indices] = np.linalg.solve(Qbar[np.ix_(indices, indices)], rhs.T).T
+        xk[:, t] = xp + delta
+        xp = xk[:, t]
+    return xk, np.diff(xk, axis=1, prepend=0.0)
+```
+
+`durin_positions` retains the diagonal specialisation for the published-path check and calls the full matrix recursion for dense covariance. Its spread and bound penalties are the same effective multipliers (section 3.3; Durin Eqs. 37, 48).
+
+```python
+def durin_positions(desk: Desk, sol: Solution, g: np.ndarray, b: int=0):
+    """Signal-wise positions x^k and trades dx^k of run ``b`` of ``sol``."""
+    if desk.cov != "diag":
+        return durin_matrix(desk, sol, g, b)
+    (K, T, N) = g.shape
+    sig2 = desk.sigma2()
+    (lam, lam0) = (desk.lam(), desk.lam0())
+    xk = np.zeros((K, T, N))
+    xp = np.zeros((K, N))
+    for t in range(T):
+        (x, dx, nu, ab, gm) = (sol.x[b, t], sol.dx[b, t], sol.nu[b, t], sol.at_bound[b, t], sol.gamma[b, t])
+        zero_trade = (dx == 0) & (lam0 > 0)
+        zero_pos = ab & (x == 0) & ~zero_trade
+        free = ~zero_trade & ~zero_pos
+        s = sol.s[b, t]
+        with np.errstate(divide='ignore', invalid='ignore'):
+            Ds = np.divide(lam0 * s, dx, out=np.zeros_like(dx), where=free & (dx != 0))
+            Db = np.where(free & ab, nu / x, 0.0)
+        Qbar = (lam + gm) * sig2 + Ds + Db
+        Pbar = gm * sig2 + Db
+        dk = (g[:, t] - Pbar * xp) / Qbar
+        dk = np.where(zero_trade, 0.0, np.where(zero_pos, -xp, dk))
+        xk[:, t] = xp + dk
+        xp = xk[:, t]
+    dxk = np.diff(xk, axis=1, prepend=0.0)
+    return (xk, dxk)
+```
+
+`allocations` returns gross P&L, quadratic cost, spread cost, net P&L and, when given the total position, the contribution $x_k^\top\Sigma x$ to portfolio **variance**. Costs use the joint trade: $\tfrac12\Delta x_k^\top\Lambda\Delta x$ and $\lambda_0\Delta x_k^\top\operatorname{sgn}(\Delta x)$ (Durin Eqs. 13–14, 22). These signed contributions can be negative; their sums are checked separately.
+
+```python
+def allocations(desk, xk, dxk, dx_total, returns, x_total=None):
+    Sigma = desk.covariance()
+    gross = (xk * returns).sum(-1)
+    quadratic_cost = 0.5 * desk.lam() * (dxk * (dx_total @ Sigma)).sum(-1)
+    spread_cost = desk.lam0() * (dxk * np.sign(dx_total)).sum(-1)
+    result = dict(gross=gross, quadratic_cost=quadratic_cost, spread_cost=spread_cost,
+                  net=gross - quadratic_cost - spread_cost)
+    if x_total is not None:
+        result["variance"] = (xk * (x_total @ Sigma)).sum(-1)
+    return result
+```
+
+`pnl_split` applies that cost convention to component positions. The diagonal arithmetic is preserved to reproduce the published endpoints exactly.
+
+```python
+def pnl_split(desk, xk, dxk, dx_total, r):
+    """P&L of component positions xk with costs split as Durin Eqs. 14 and 22."""
+    if desk.cov != "diag":
+        return allocations(desk, xk, dxk, dx_total, r)["net"]
+    (lam, lam0) = (desk.lam(), desk.lam0())
+    sig2 = desk.sigma2()
+    gross = (xk * r).sum(-1)
+    quad = 0.5 * lam * (dxk * sig2 * dx_total).sum(-1)
+    spread = lam0 * (dxk * np.sign(dx_total)).sum(-1)
+    return gross - quad - spread
+```
+
+`pnl` evaluates the full run with the same position, quadratic-cost and spread-cost ledger (Durin Eq. 5 and section 3.3).
+
+```python
+def pnl(desk: Desk, sol: Solution, r: np.ndarray) -> np.ndarray:
+    """Net P&L per period (B, T): x_t . r_{t+1} minus quadratic and spread costs."""
+    return pnl_split(desk, sol.x, sol.dx, sol.dx, r)
+```
+
+`component_pnl` evaluates signal or constraint portfolios using the joint run's trades for the cost allocation (Durin Eqs. 14, 22).
+
+```python
+def component_pnl(desk, xk, dxk, sol: Solution, r, b: int=0):
+    """P&L per component with Durin's cost split (Eqs. 14, 22)."""
+    return pnl_split(desk, xk, dxk, sol.dx[b][None], r[None])
+```
+
+</details>
+
+<details>
+<summary>Other methods</summary>
+
+#### 3. Other methods
+
+`grinold_easton_positions` sends each signal, the spread force $-\lambda_0s$ and the box force $-\nu$ through $Q\Delta x+Px_{t-1}=\text{source}$ (section 3.3; Durin Eqs. 10–12, 17, 21). It keeps separate spread and position-limit portfolios and uses full matrices for dense covariance.
+
+```python
+def grinold_easton_positions(desk, sol, g):
+    K, T, N = g.shape
+    lam, spread = desk.lam(), desk.lam0()
+    sources = np.concatenate([g, -spread * sol.s[0][None], -sol.nu[0][None]])
+    xk, xp = np.zeros((K + 2, T, N)), np.zeros((K + 2, N))
+    Sigma = desk.covariance()
+    for t in range(T):
+        gamma = sol.gamma[0, t]
+        if desk.cov == "diag":
+            sig2 = desk.sigma2()
+            delta = (sources[:, t] - gamma * sig2 * xp) / ((lam + gamma) * sig2)
+        else:
+            Q, P = (lam + gamma) * Sigma, gamma * Sigma
+            delta = np.linalg.solve(Q, (sources[:, t] - xp @ P).T).T
+        xk[:, t] = xp + delta
+        xp = xk[:, t]
+    return xk, np.diff(xk, axis=1, prepend=0.0)
+```
+
+`regress` fits non-negative least squares without an intercept to stand-alone net P&Ls (section 3.1; Durin's discussion on pp. 2–3). The unexplained book P&L remains a separate residual.
+
+```python
+def regress(total, proxies):
+    beta = nnls(proxies.T, total)[0]
+    attributed = beta[:, None] * proxies
+    return beta, attributed, total - attributed.sum(0)
+```
+
+`iterated_proxies` reruns each signal at its updated risk target (section 3.1). Targets are multiplied by their NNLS coefficients without damping. Live zero coefficients drop proxies; zero-P&L proxies leave the convergence criterion. No live proxy gives `no_live_proxy`, not convergence. Convergence requires live coefficients within $10^{-3}$ of one, with at most 50 fits.
+With `trace=True`, each fit retains its targets, coefficients, realised risk paths,
+binding fractions (absolute tolerance $10^{-7}$, relative $10^{-6}$), proxy P&Ls
+and solver diagnostics. Dropped proxies have zero risk and no solver record.
+`update_power=1` is the method above; a power below one is a separately labelled
+experimental damped update, $\sigma_k\leftarrow\sigma_k\hat\beta_k^p$.
+It does not change the coefficient convergence test.
+
+
+```python
+def iterated_proxies(desk, g, total, r, tol=1e-3, max_iter=50, *, trace=False, update_power=1.0):
+    if not 0 < update_power <= 1:
+        raise ValueError("update_power must be in (0, 1]; 1 is the undamped method")
+    history = []
+    K, T, N = g.shape
+    sigma = np.full(K, desk.risk_target)
+    status = "max_iter"
+    for iteration in range(1, max_iter + 1):
+        active = np.flatnonzero(sigma > 0)
+        proxies = np.zeros((K, T))
+        if len(active):
+            sol = solve(desk, g[active], sigma_target=sigma[active])
+            proxies[active] = pnl(desk, sol, r)
+        solved = active.copy()
+        active = active[np.any(proxies[active] != 0, axis=1)]
+        beta = np.zeros(K)
+        if len(active):
+            beta[active], _, _ = regress(total, proxies[active])
+        if trace:
+            risk = np.zeros((K, T))
+            if len(solved):
+                risk[solved] = np.sqrt(np.einsum(
+                    "kti,ij,ktj->kt", sol.x, desk.covariance(), sol.x))
+            history.append(dict(iteration=iteration, beta=beta.copy(),
+                risk_targets=sigma.copy(), realised_risk=risk,
+                binding_fraction=np.mean(np.isclose(risk, sigma[:, None],
+                    atol=1e-7, rtol=1e-6) & (sigma[:, None] > 0), axis=1),
+                solved=solved, proxies=proxies.copy(),
+                solver=sol.diagnostics if len(solved) else None))
+        if not len(active):
+            status = "no_live_proxy"
+            break
+        if np.max(np.abs(beta[active] - 1)) < tol:
+            status = "converged"
+            break
+        if iteration == max_iter:
+            break
+        sigma[active] *= beta[active] ** update_power
+    return beta[:, None] * proxies, dict(
+        status=status, n_iter=iteration, beta=beta, risk_targets=sigma, history=history)
+```
+
+`coalition_signals` sums forecasts for every non-empty subset, indexed by bitmask (section 3.4's game). Every subset uses the same construction rules.
+
+```python
+def coalition_signals(g: np.ndarray) -> np.ndarray:
+    """Combined signal of every coalition, indexed by bitmask 1..2^K-1."""
+    K = g.shape[0]
+    masks = np.arange(1, 2 ** K)
+    member = masks[:, None] >> np.arange(K) & 1
+    return np.einsum('mk,ktn->mtn', member.astype(float), g)
+```
+
+`shapley_weights` computes the probability weight of each coalition size in a random ordering of signals (section 3.4).
+
+```python
+def shapley_weights(K: int):
+    return np.array([factorial(s) * factorial(K - s - 1) / factorial(K) for s in range(K)])
+```
+
+`shapley` averages marginal P&L over all orders. The empty coalition's value is zero; this calculation is applied period by period (section 3.4).
+
+```python
+def shapley(v: np.ndarray, K: int) -> np.ndarray:
+    """Exact Shapley values per period."""
+    w = shapley_weights(K)
+    masks = np.arange(2 ** K)
+    size = np.array([bin(m).count('1') for m in masks])
+    phi = np.zeros((K, v.shape[1]))
+    for k in range(K):
+        S = masks[masks >> k & 1 == 0]
+        phi[k] = (w[size[S]][:, None] * (v[S | 1 << k] - v[S])).sum(0)
+    return phi
+```
+
+`singleton_index` identifies the stand-alone coalitions, so the first NNLS fit and the risk-target coalition game use exactly the same paths (sections 3.1 and 3.4).
+
+```python
+def singleton_index(K: int) -> np.ndarray:
+    """Bitmask of each singleton coalition."""
+    return 1 << np.arange(K)
+```
+
+`compare` calculates all seven displayed methods. It evaluates both coalition risk conventions, computes leave-one-out as the full-coalition value minus each complementary coalition, and keeps proxy and leave-one-out residuals separate. The full-portfolio solver and the rerun solver are the same.
+
+```python
+def compare(desk, seed=20261029, include_iterated=True):
+    g, r = simulate(desk, seed)
+    K, T, _ = g.shape
+    full = solve(desk, g.sum(0)[None], sigma_target=np.array([desk.risk_target]))
+    total = pnl(desk, full, r)[0]
+    parts = {}
+    for name, positions in [("durin", durin_positions),
+                            ("grinold_easton", grinold_easton_positions)]:
+        x, dx = positions(desk, full, g)
+        parts[name] = component_pnl(desk, x, dx, full, r)
+    coalitions = coalition_signals(g)
+    for convention in ("target", "gamma"):
+        options = (dict(sigma_target=np.full(len(coalitions), desk.risk_target))
+                   if convention == "target" else
+                   dict(gamma_path=np.broadcast_to(full.gamma, (len(coalitions), T))))
+        sol = solve(desk, coalitions, **options)
+        v = np.vstack([np.zeros(T), pnl(desk, sol, r)])
+        parts["shapley_" + convention] = shapley(v, K)
+        if convention == "target":
+            _, parts["regression"], _ = regress(total, v[singleton_index(K)])
+            parts["loo"] = v[-1] - v[(2**K - 1) ^ singleton_index(K)]
+    iteration = None
+    if include_iterated:
+        parts["iterated"], iteration = iterated_proxies(desk, g, total, r)
+    for method in ("regression", "loo", "iterated"):
+        if method not in parts:
+            continue
+        parts[method] = np.vstack([parts[method], total - parts[method].sum(0)])
+    return total, parts, iteration
+```
+
+</details>
+
+<details>
+<summary>Reproduction</summary>
+
+#### 4. Reproduction and checks
+
+First run a small one-factor example (8 assets, 30 periods, seed 0), using CVXPY only. Long-only bounds exercise the zero-position limit as well as the no-trade limit. Raw duals are used, so the declared absolute tolerance is $10^{-5}$ for dense attribution sums, consistent with the diagonal oracle's position tolerance. This is a numerical reconciliation check, not the exact endpoint check below. The output gives the errors in positions, trades, gross P&L, each cost, net P&L and variance, plus the KKT residual.
+
+The separate four-asset/four-period example also runs the methods through `compare`. Its iterated targets can exceed the maximum risk permitted by the box. The solver removes such redundant risk inequalities using the rigorous bound above; a separate check compares this branch with an explicit zero-risk-aversion run. Iteration status is printed as returned, including `max_iter` when applicable. Default `compare` raises any remaining solver failure.
+
+```python
+dense = Desk(n_assets=8, n_periods=30, cov="factor", long_only=True,
+             box=1.0, spread_rel=0.8)
+g, r = simulate(dense, 0)
+full = solve_cvxpy(dense, g.sum(0)[None], sigma_target=np.array([1.0]))
+Sigma = dense.covariance()
+kkt = (g.sum(0) - dense.lam() * full.dx[0] @ Sigma
+       - full.gamma[0, :, None] * (full.x[0] @ Sigma)
+       - dense.lam0() * full.s[0] - full.nu[0])
+print("Dense KKT max residual:", np.max(np.abs(kkt)))
+print("Raw box-dual identity error:",
+      np.max(np.abs(full.nu - (full.dual_upper - full.dual_lower))))
+zero_trades = full.dx[0] == 0
+zero_bounds = full.at_bound[0] & (full.x[0] == 0)
+previous = np.concatenate([np.zeros_like(full.x[0, :1]), full.x[0, :-1]])
+liquidations = zero_bounds & (previous > 0) & ~zero_trades
+assert zero_trades.any() and zero_bounds.any() and liquidations.any()
+print("Actual liquidations from positive position to zero:", liquidations.sum())
+print("Zero joint trades / active zero bounds:", zero_trades.sum(), zero_bounds.sum())
+ledger = allocations(dense, full.x[0], full.dx[0], full.dx[0], r, full.x[0])
+for name, positions in [("Durin", durin_positions), ("Grinold–Easton", grinold_easton_positions)]:
+    xk, dxk = positions(dense, full, g)
+    np.testing.assert_allclose(component_pnl(dense, xk, dxk, full, r),
+                               allocations(dense, xk, dxk, full.dx[0], r)["net"],
+                               atol=1e-12, rtol=0)
+    a = allocations(dense, xk, dxk, full.dx[0], r, full.x[0])
+    errors = dict(positions=np.max(np.abs(xk.sum(0) - full.x[0])),
+                  trades=np.max(np.abs(dxk.sum(0) - full.dx[0])))
+    errors.update({key: np.max(np.abs(values.sum(0) - ledger[key]))
+                   for key, values in a.items()})
+    if name == "Durin":
+        np.testing.assert_array_equal(dxk[:, zero_trades], 0)
+        np.testing.assert_array_equal(xk[:, zero_bounds], 0)
+    for key, error in errors.items():
+        assert error <= 1e-5, (name, key, error)
+    print(name, {key: float(value) for key, value in errors.items()})
+print("PASS: dense allocations, variance sums and zero-trade/zero-bound limits")
+
+# Zero-spread cancellation: zero joint trade must allow opposite component trades.
+for covariance in ("diag", "factor"):
+    cancellation = Desk(n_assets=2, n_periods=2, cov=covariance, spread_rel=0.0)
+    opposing = np.array([[[0.05, -0.03], [0.04, -0.02]],
+                         [[-0.05, 0.03], [-0.04, 0.02]]])
+    joint = solve(cancellation, opposing.sum(0)[None], gamma_path=np.ones((1, 2)))
+    xk, dxk = durin_positions(cancellation, joint, opposing)
+    assert np.any(np.abs(dxk) > 1e-3)
+    np.testing.assert_allclose(dxk.sum(0), joint.dx[0], atol=1e-8, rtol=0)
+    np.testing.assert_allclose(xk.sum(0), joint.x[0], atol=1e-8, rtol=0)
+print("PASS: zero-spread cancelling trades, diagonal and dense")
+
+# Check the redundant-risk branch against the same problem at gamma=0.
+small_dense = Desk(n_assets=4, n_periods=4, cov="factor")
+g_small, r_small = simulate(small_dense, 0)
+large_target = solve_cvxpy(small_dense, g_small.sum(0)[None],
+                          sigma_target=np.array([11881.909026551642]))
+zero_gamma = solve_cvxpy(small_dense, g_small.sum(0)[None],
+                        gamma_path=np.zeros((1, small_dense.n_periods)))
+np.testing.assert_array_equal(large_target.gamma, 0)
+np.testing.assert_allclose(large_target.x, zero_gamma.x, atol=1e-8, rtol=0)
+np.testing.assert_allclose(large_target.nu, zero_gamma.nu, atol=1e-8, rtol=0)
+print("PASS: redundant risk target equals gamma=0; max position error",
+      float(np.max(np.abs(large_target.x - zero_gamma.x))))
+total_dense, methods_dense, _ = compare(small_dense, seed=0, include_iterated=False)
+for method, values in methods_dense.items():
+    assert np.isfinite(values).all()
+    error = np.max(np.abs(values.sum(0) - total_dense))
+    assert error <= 1e-5, (method, error)
+    print("Dense method check:", method, "max period reconciliation error", float(error))
+g_small, r_small = simulate(small_dense, 0)
+try:
+    attributed_dense, iteration_dense = iterated_proxies(small_dense, g_small, total_dense, r_small, trace=True)
+    residual_dense = total_dense - attributed_dense.sum(0)
+    assert np.isfinite(attributed_dense).all()
+    np.testing.assert_allclose(attributed_dense.sum(0) + residual_dense,
+                               total_dense, atol=1e-5, rtol=0)
+    print("Dense iteration status:", iteration_dense["status"], "fits:", iteration_dense["n_iter"])
+except RuntimeError as error:
+    print("DENSE ITERATION NOT VERIFIED:", str(error))
+print("Solver events:", solver_events)
+solver_events.clear()
+```
+
+```text
+Dense KKT max residual: 4.401681470917254e-09
+Raw box-dual identity error: 0.0
+Actual liquidations from positive position to zero: 8
+Zero joint trades / active zero bounds: 203 118
+Durin {'positions': 1.9557196417885336e-09, 'trades': 1.9557196417885336e-09, 'gross': 3.085415589687557e-09, 'quadratic_cost': 5.83463121567318e-11, 'spread_cost': 1.6965026605753053e-10, 'net': 3.085415589687557e-09, 'variance': 1.947450312123067e-09}
+Grinold–Easton {'positions': 2.2032357271939418e-08, 'trades': 1.762616990905186e-08, 'gross': 2.7894036414011225e-08, 'quadratic_cost': 9.632457158292862e-11, 'spread_cost': 1.2902979899809264e-09, 'net': 2.7888603204573315e-08, 'variance': 6.229143978409013e-09}
+PASS: dense allocations, variance sums and zero-trade/zero-bound limits
+PASS: zero-spread cancelling trades, diagonal and dense
+PASS: redundant risk target equals gamma=0; max position error 0.0
+Dense method check: durin max period reconciliation error 3.3075678536331754e-07
+Dense method check: grinold_easton max period reconciliation error 1.5779620150813134e-07
+Dense method check: shapley_target max period reconciliation error 2.6728619317850644e-14
+Dense method check: regression max period reconciliation error 1.3877787807814457e-17
+Dense method check: loo max period reconciliation error 0.0
+Dense method check: shapley_gamma max period reconciliation error 3.6393206892526564e-08
+```
+
+```text
+Dense iteration status: max_iter fits: 50
+Solver events: [{'event': 'solver warning', 'message': 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'}]
+```
+
+#### Why the small dense iteration does not converge
+
+This is the four-asset, **four-period** seed-0 example used by `compare`,
+not the eight-asset, thirty-period allocation check above, nor the longer
+multi-seed study. Keep this short example as a failure case: its risk targets
+are upper bounds, not a promise that the optimiser will use that much risk.
+Costs and the individual forecasts leave the stand-alone solutions below
+those bounds even in the first fit. Two NNLS coefficients exceed one, so the
+undamped update raises already inactive bounds without enlarging the proxies.
+The other two coefficients are zero and their proxies drop out.
+
+The diagnostics below print every fit's coefficients, targets, maximum realised
+risks and binding fractions. `history` also holds each period's realised and
+raw risk, solver status and iteration count, primal equality and box errors,
+snapping changes and stationarity residuals. These residuals are numerical
+checks, not a claim that the solver's internal duality gap is available.
+The declared Clarabel tolerances remain unchanged.
+
+We check the cause by removing the risk constraint altogether, doubling the
+initial bounds, and repeating without snapping. We then compare a separate
+**optional** geometric damped update (power 0.5) with the original method.
+Finally, a proxy-stability diagnostic identifies redundant reruns; it is not
+the coefficient stopping rule and must not be called convergence.
+
+
+```python
+np.set_printoptions(precision=6)
+for row in iteration_dense["history"]:
+    print(row["iteration"], "beta", row["beta"], "target", row["risk_targets"],
+          "max risk", row["realised_risk"].max(axis=1),
+          "binding fraction", row["binding_fraction"])
+
+unconstrained = solve_cvxpy(small_dense, g_small,
+    gamma_path=np.zeros((len(g_small), small_dense.n_periods)))
+doubled = solve_cvxpy(small_dense, g_small, sigma_target=np.full(len(g_small), 2.0))
+unsnapped = solve_cvxpy(small_dense, g_small,
+    sigma_target=np.ones(len(g_small)), snap_tolerance=0)
+first = iteration_dense["history"][0]
+free_pnl = pnl(small_dense, unconstrained, r_small)
+free_beta = regress(total_dense, free_pnl)[0]
+print("Risk-unconstrained vs initial proxy P&L max error:", np.max(np.abs(free_pnl-first["proxies"])))
+print("Doubled targets vs initial P&L max error:",
+      np.max(np.abs(pnl(small_dense, doubled, r_small)-first["proxies"])))
+unsnapped_pnl = pnl(small_dense, unsnapped, r_small)
+print("Unsnapped full NNLS beta (includes numerical near-zero columns):",
+      regress(total_dense, unsnapped_pnl)[0])
+print("Unsnapped proxy P&L column norms:", np.linalg.norm(unsnapped_pnl, axis=1))
+live = np.flatnonzero(first["beta"] > 0)
+print("Unsnapped NNLS restricted to the same surviving columns:",
+      regress(total_dense, unsnapped_pnl[live])[0])
+print("Risk-unconstrained beta:", free_beta)
+print("Unsnapped full-fit residual norm:", np.linalg.norm(
+    regress(total_dense, unsnapped_pnl)[2]))
+# Vary the numerical zero convention without preselecting the surviving columns.
+for snap_tol in (1e-8, 1e-5, 1e-4):
+    sensitivity = solve_cvxpy(small_dense, g_small,
+        sigma_target=np.ones(len(g_small)), snap_tolerance=snap_tol)
+    sensitivity_beta = regress(total_dense, pnl(small_dense, sensitivity, r_small))[0]
+    print("Snap tolerance", snap_tol, "full NNLS beta:", sensitivity_beta)
+    np.testing.assert_allclose(sensitivity_beta, first["beta"], atol=1e-5, rtol=0)
+
+np.testing.assert_allclose(free_pnl, first["proxies"], atol=1e-6, rtol=0)
+np.testing.assert_allclose(pnl(small_dense, doubled, r_small), first["proxies"], atol=1e-6, rtol=0)
+np.testing.assert_allclose(unsnapped_pnl, first["proxies"], atol=1e-6, rtol=0)
+np.testing.assert_allclose(regress(total_dense, unsnapped_pnl[live])[0],
+                           first["beta"][live], atol=1e-5, rtol=0)
+assert free_beta[0] > 3 and free_beta[2] > 10
+assert all(np.all(row["binding_fraction"] == 0) for row in iteration_dense["history"])
+for key in ("equality_error", "box_violation", "stationarity_error", "snap_change"):
+    print("Maximum", key, max(np.max(row["solver"][key]) for row in iteration_dense["history"]))
+print("Solver statuses:", sorted({s for row in iteration_dense["history"]
+                                  for s in row["solver"]["status"].ravel()}))
+print("Maximum raw risk excess:", max(np.max(row["solver"]["raw_risk"] -
+    row["risk_targets"][row["solved"], None]) for row in iteration_dense["history"]))
+
+_, damped_dense = iterated_proxies(small_dense, g_small, total_dense, r_small,
+                                  trace=True, update_power=0.5)
+print("Optional power-0.5 damping:", damped_dense["status"],
+      "fits:", damped_dense["n_iter"], "beta:", damped_dense["beta"],
+      "targets:", damped_dense["risk_targets"])
+assert damped_dense["status"] == iteration_dense["status"] == "max_iter"
+# Compare only after dropping zero-coefficient proxies; otherwise a dropped
+# nonzero P&L column would itself look like movement.
+stationary_fit = None
+for previous, current in zip(iteration_dense["history"], iteration_dense["history"][1:]):
+    if (np.array_equal(previous["solved"], current["solved"])
+        and np.max(np.abs(current["proxies"] - previous["proxies"])) < 1e-6):
+        stationary_fit = current["iteration"]
+        break
+print("Optional absolute proxy-P&L stability diagnostic (1e-6): fit", stationary_fit,
+      "— stalled proxies, NOT coefficient convergence")
+assert stationary_fit is not None
+```
+
+```text
+1 beta [ 3.3523    0.       10.440506  0.      ] target [1. 1. 1. 1.] max risk [0.365357 0.002152 0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+2 beta [ 3.3523    0.       10.440506  0.      ] target [ 3.3523    0.       10.440506  1.      ] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+3 beta [ 3.3523    0.       10.440506  0.      ] target [ 11.237916   0.       109.004159   1.      ] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+4 beta [ 3.3523    0.       10.440506  0.      ] target [3.767287e+01 0.000000e+00 1.138059e+03 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+5 beta [ 3.3523    0.       10.440506  0.      ] target [1.262907e+02 0.000000e+00 1.188191e+04 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+6 beta [ 3.3523    0.       10.440506  0.      ] target [4.233645e+02 0.000000e+00 1.240531e+05 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+7 beta [ 3.3523    0.       10.440506  0.      ] target [1.419245e+03 0.000000e+00 1.295177e+06 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+8 beta [ 3.3523    0.       10.440506  0.      ] target [4.757734e+03 0.000000e+00 1.352231e+07 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+9 beta [ 3.3523    0.       10.440506  0.      ] target [1.594935e+04 0.000000e+00 1.411797e+08 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+10 beta [ 3.3523    0.       10.440506  0.      ] target [5.346702e+04 0.000000e+00 1.473987e+09 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+11 beta [ 3.3523    0.       10.440506  0.      ] target [1.792375e+05 0.000000e+00 1.538917e+10 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+12 beta [ 3.3523    0.       10.440506  0.      ] target [6.008578e+05 0.000000e+00 1.606708e+11 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+13 beta [ 3.3523    0.       10.440506  0.      ] target [2.014256e+06 0.000000e+00 1.677484e+12 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+14 beta [ 3.3523    0.       10.440506  0.      ] target [6.752390e+06 0.000000e+00 1.751378e+13 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+15 beta [ 3.3523    0.       10.440506  0.      ] target [2.263604e+07 0.000000e+00 1.828527e+14 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+16 beta [ 3.3523    0.       10.440506  0.      ] target [7.588279e+07 0.000000e+00 1.909075e+15 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+17 beta [ 3.3523    0.       10.440506  0.      ] target [2.543819e+08 0.000000e+00 1.993171e+16 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+18 beta [ 3.3523    0.       10.440506  0.      ] target [8.527643e+08 0.000000e+00 2.080971e+17 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+19 beta [ 3.3523    0.       10.440506  0.      ] target [2.858722e+09 0.000000e+00 2.172639e+18 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+20 beta [ 3.3523    0.       10.440506  0.      ] target [9.583294e+09 0.000000e+00 2.268345e+19 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+21 beta [ 3.3523    0.       10.440506  0.      ] target [3.212608e+10 0.000000e+00 2.368267e+20 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+22 beta [ 3.3523    0.       10.440506  0.      ] target [1.076962e+11 0.000000e+00 2.472590e+21 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+23 beta [ 3.3523    0.       10.440506  0.      ] target [3.610301e+11 0.000000e+00 2.581509e+22 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+24 beta [ 3.3523    0.       10.440506  0.      ] target [1.210281e+12 0.000000e+00 2.695226e+23 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+25 beta [ 3.3523    0.       10.440506  0.      ] target [4.057226e+12 0.000000e+00 2.813953e+24 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+26 beta [ 3.3523    0.       10.440506  0.      ] target [1.360104e+13 0.000000e+00 2.937909e+25 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+27 beta [ 3.3523    0.       10.440506  0.      ] target [4.559477e+13 0.000000e+00 3.067325e+26 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+28 beta [ 3.3523    0.       10.440506  0.      ] target [1.528473e+14 0.000000e+00 3.202443e+27 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+29 beta [ 3.3523    0.       10.440506  0.      ] target [5.123901e+14 0.000000e+00 3.343512e+28 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+30 beta [ 3.3523    0.       10.440506  0.      ] target [1.717685e+15 0.000000e+00 3.490796e+29 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+31 beta [ 3.3523    0.       10.440506  0.      ] target [5.758197e+15 0.000000e+00 3.644567e+30 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+32 beta [ 3.3523    0.       10.440506  0.      ] target [1.930320e+16 0.000000e+00 3.805113e+31 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+33 beta [ 3.3523    0.       10.440506  0.      ] target [6.471013e+16 0.000000e+00 3.972730e+32 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+34 beta [ 3.3523    0.       10.440506  0.      ] target [2.169278e+17 0.000000e+00 4.147731e+33 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+35 beta [ 3.3523    0.       10.440506  0.      ] target [7.272070e+17 0.000000e+00 4.330441e+34 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+36 beta [ 3.3523    0.       10.440506  0.      ] target [2.437816e+18 0.000000e+00 4.521199e+35 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+37 beta [ 3.3523    0.       10.440506  0.      ] target [8.172291e+18 0.000000e+00 4.720361e+36 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+38 beta [ 3.3523    0.       10.440506  0.      ] target [2.739597e+19 0.000000e+00 4.928295e+37 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+39 beta [ 3.3523    0.       10.440506  0.      ] target [9.183952e+19 0.000000e+00 5.145389e+38 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+40 beta [ 3.3523    0.       10.440506  0.      ] target [3.078736e+20 0.000000e+00 5.372047e+39 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+41 beta [ 3.3523    0.       10.440506  0.      ] target [1.032085e+21 0.000000e+00 5.608688e+40 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+42 beta [ 3.3523    0.       10.440506  0.      ] target [3.459858e+21 0.000000e+00 5.855754e+41 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+43 beta [ 3.3523    0.       10.440506  0.      ] target [1.159848e+22 0.000000e+00 6.113703e+42 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+44 beta [ 3.3523    0.       10.440506  0.      ] target [3.888159e+22 0.000000e+00 6.383015e+43 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+45 beta [ 3.3523    0.       10.440506  0.      ] target [1.303428e+23 0.000000e+00 6.664191e+44 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+46 beta [ 3.3523    0.       10.440506  0.      ] target [4.369480e+23 0.000000e+00 6.957752e+45 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+47 beta [ 3.3523    0.       10.440506  0.      ] target [1.464781e+24 0.000000e+00 7.264245e+46 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+48 beta [ 3.3523    0.       10.440506  0.      ] target [4.910385e+24 0.000000e+00 7.584239e+47 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+49 beta [ 3.3523    0.       10.440506  0.      ] target [1.646108e+25 0.000000e+00 7.918329e+48 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+50 beta [ 3.3523    0.       10.440506  0.      ] target [5.518249e+25 0.000000e+00 8.267136e+49 1.000000e+00] max risk [0.365357 0.       0.162856 0.      ] binding fraction [0. 0. 0. 0.]
+Risk-unconstrained vs initial proxy P&L max error: 3.0635910858427956e-07
+Doubled targets vs initial P&L max error: 1.1062087527241582e-08
+Unsnapped full NNLS beta (includes numerical near-zero columns): [2.832514e+00 1.156902e+02 2.976582e+00 1.753866e+08]
+Unsnapped proxy P&L column norms: [2.886402e-01 6.154359e-03 1.788437e-01 4.912001e-09]
+Unsnapped NNLS restricted to the same surviving columns: [ 3.3523   10.440506]
+Risk-unconstrained beta: [ 3.3523    0.       10.440506  0.      ]
+Unsnapped full-fit residual norm: 5.283137298900343e-16
+Snap tolerance 1e-08 full NNLS beta: [ 3.3523    0.       10.440506  0.      ]
+Snap tolerance 1e-05 full NNLS beta: [ 3.3523    0.       10.440506  0.      ]
+Snap tolerance 0.0001 full NNLS beta: [ 3.3523    0.       10.440506  0.      ]
+Maximum equality_error 5.551115123125783e-17
+Maximum box_violation 0.0
+Maximum stationarity_error 1.0655092225198004e-09
+Maximum snap_change 9.609189828524719e-09
+Solver statuses: ['optimal']
+Maximum raw risk excess: -0.634643185121041
+```
+
+```text
+Optional power-0.5 damping: max_iter fits: 50 beta: [ 3.3523    0.       10.440506  0.      ] targets: [7.428492e+12 0.000000e+00 9.092379e+24 1.000000e+00]
+Optional absolute proxy-P&L stability diagnostic (1e-6): fit 3 — stalled proxies, NOT coefficient convergence
+```
+
+The printed coefficients stay near 3.3523 and 10.4405 on the two surviving
+proxies. Their maximum realised risks stay near 0.36536 and 0.16286; no period's
+risk constraint binds. The risk-unconstrained counterfactual reproduces the same result. Removing snapping
+preserves proxy P&Ls within $10^{-6}$ but can change the full NNLS fit:
+a numerical near-zero column receives an enormous coefficient. Restricting
+that sensitivity check to the same surviving columns recovers their coefficients.
+The full unsnapped fit also moves the third coefficient from about 10.44 to
+2.98 and has a near-zero residual with four columns for four observations.
+Coefficient magnitudes therefore depend on the numerical zero convention and
+resulting active set. The separate full-fit checks vary the snapping tolerance
+without fixing that active set in advance. Thus NNLS is sensitive to numerical zero columns; the existing no-trade snapping
+convention matters and is retained. This is target saturation with growth
+in the targets, not a period-two coefficient cycle. Numerical warnings are
+retained, but numerical error does not explain coefficient errors of this size.
+
+Halving the logarithmic update only slows the target growth; it does not solve
+this case, so this case does not motivate damping as a remedy. A proxy-stability
+stop would save redundant work and report **stalled**, not converged. We leave
+the default method and its `max_iter` result intact. This trajectory does not
+prove that no fixed point exists at other initial targets. The study's 80%
+convergence across twenty longer one-factor runs is a different experiment.
+
+
+#### A longer dense example with reachable risk targets
+
+We declare seed 0 before running, with 20 assets, 200 periods and the same
+one-factor covariance, costs and signal parameters. The symmetric box is 8
+in `Desk` units: its coordinate bound exceeds every coordinate extremum of
+the initial unit-risk ellipsoid, computed below from the inverse covariance.
+This removes the box as an initial obstacle to using the target; it does not
+guarantee that a forecast is strong enough to use it in every period.
+The longer path allows persistent signals to build positions beyond the
+four-period transient. No seed search, damping or stopping-rule change is used.
+
+
+```python
+from time import perf_counter
+from collections import Counter
+solver_events.clear()
+sized_start = perf_counter()
+sized_seed = 0
+sized_dense = Desk(n_assets=20, n_periods=200, cov="factor", box=8.0)
+sized_sigma = sized_dense.covariance()
+ellipsoid_extent = sized_dense.risk_target * np.sqrt(np.diag(np.linalg.inv(sized_sigma)))
+print("Initial ellipsoid max coordinate / box bound:",
+      ellipsoid_extent.max(), sized_dense.bounds()[1][0])
+assert np.all(ellipsoid_extent < sized_dense.bounds()[1])
+g_sized, r_sized = simulate(sized_dense, sized_seed)
+total_sized, methods_sized, _ = compare(sized_dense, seed=sized_seed, include_iterated=False)
+attributed_sized, iteration_sized = iterated_proxies(
+    sized_dense, g_sized, total_sized, r_sized, tol=1e-3, max_iter=50, trace=True)
+methods_sized["iterated"] = np.vstack([
+    attributed_sized, total_sized - attributed_sized.sum(0)])
+# Same period reconciliation tolerance as the original dense examples.
+for method, values in methods_sized.items():
+    assert np.isfinite(values).all()
+    error = np.max(np.abs(values.sum(0) - total_sized))
+    assert error <= 1e-5, (method, error)
+    print("Sized dense method check:", method, "max period error", float(error))
+
+full_sized = solve_cvxpy(sized_dense, g_sized.sum(0)[None], sigma_target=np.array([1.0]))
+ledger_sized = allocations(sized_dense, full_sized.x[0], full_sized.dx[0],
+                           full_sized.dx[0], r_sized, full_sized.x[0])
+for name, positions in [("Durin", durin_positions), ("Grinold–Easton", grinold_easton_positions)]:
+    xk, dxk = positions(sized_dense, full_sized, g_sized)
+    a = allocations(sized_dense, xk, dxk, full_sized.dx[0], r_sized, full_sized.x[0])
+    errors = dict(positions=np.max(np.abs(xk.sum(0) - full_sized.x[0])),
+                  trades=np.max(np.abs(dxk.sum(0) - full_sized.dx[0])))
+    errors.update({key: np.max(np.abs(values.sum(0) - ledger_sized[key]))
+                   for key, values in a.items()})
+    np.testing.assert_allclose(component_pnl(sized_dense, xk, dxk, full_sized, r_sized),
+                               a["net"], atol=1e-12, rtol=0)
+    assert max(errors.values()) <= 1e-5, (name, errors)
+    print(name, {key: float(value) for key, value in errors.items()})
+
+# Half L1 distance of cumulative signal shares; residuals and GE's two
+# extra portfolios are displayed separately, never redistributed to signals.
+book_sized = total_sized.sum()
+assert abs(book_sized) > 1e-12
+K_sized = len(sized_dense.ic)
+durin_shares_sized = methods_sized["durin"].sum(1) / book_sized
+print("method | distance to Durin | non-signal share")
+for method, values in methods_sized.items():
+    shares = values.sum(1) / book_sized
+    distance = 0.5 * np.abs(shares[:K_sized] - durin_shares_sized).sum()
+    print(f"{method} | {distance:.6f} | {shares[K_sized:].sum():.6f}")
+print("case | status | fits | initial binding fractions | final binding fractions")
+for label, run in [("4 x 4", iteration_dense), ("20 x 200", iteration_sized)]:
+    print(label, "|", run["status"], "|", run["n_iter"], "|",
+          run["history"][0]["binding_fraction"], "|", run["history"][-1]["binding_fraction"])
+for label, row in [("initial", iteration_sized["history"][0]),
+                   ("final", iteration_sized["history"][-1])]:
+    print(label, "targets", row["risk_targets"], "max realised risk",
+          row["realised_risk"].max(1), "beta", row["beta"])
+print("Sized dense solver statuses:", sorted({s for row in iteration_sized["history"]
+                                            for s in row["solver"]["status"].ravel()}))
+sized_solver_events = solver_events.copy()
+print("Sized dense solver events (counts):", dict(Counter(
+    (event["event"], event.get("message", "")) for event in sized_solver_events)))
+for key in ("equality_error", "box_violation", "stationarity_error", "snap_change"):
+    print("Sized dense maximum", key,
+          max(np.max(row["solver"][key]) for row in iteration_sized["history"]))
+print("Sized dense raw risk excess:", max(np.max(row["solver"]["raw_risk"] -
+      row["risk_targets"][row["solved"], None]) for row in iteration_sized["history"]))
+solver_events.clear()
+sized_elapsed = perf_counter() - sized_start
+print(f"New dense cells wall time: {sized_elapsed:.2f} seconds")
+```
+
+```text
+Initial ellipsoid max coordinate / box bound: 1.2758264716861842 1.7888543819998317
+```
+
+```text
+Sized dense method check: durin max period error 1.766519045126591e-06
+Sized dense method check: grinold_easton max period error 2.1118148303411743e-06
+Sized dense method check: shapley_target max period error 3.520137798695977e-06
+Sized dense method check: regression max period error 2.220446049250313e-16
+Sized dense method check: loo max period error 2.220446049250313e-16
+Sized dense method check: shapley_gamma max period error 6.717438052639135e-06
+Sized dense method check: iterated max period error 2.220446049250313e-16
+```
+
+```text
+Durin {'positions': 5.120453453466567e-07, 'trades': 4.106198928655047e-07, 'gross': 1.7654553863266642e-06, 'quadratic_cost': 3.7666990172768866e-08, 'spread_cost': 1.538472944456748e-07, 'net': 1.766519045126591e-06, 'variance': 4.666865346392157e-07}
+Grinold–Easton {'positions': 1.6534753839447802e-06, 'trades': 1.6206927185022715e-06, 'gross': 2.2738004623601427e-06, 'quadratic_cost': 6.984473696278193e-08, 'spread_cost': 3.397091039025746e-07, 'net': 2.1118148303411743e-06, 'variance': 7.170505479381362e-07}
+method | distance to Durin | non-signal share
+durin | 0.000000 | 0.000000
+grinold_easton | 0.233900 | -0.400292
+shapley_target | 0.123794 | 0.000000
+regression | 0.345052 | 0.690104
+loo | 0.189959 | 0.379918
+shapley_gamma | 0.025916 | 0.000000
+iterated | 0.198070 | 0.396140
+case | status | fits | initial binding fractions | final binding fractions
+4 x 4 | max_iter | 50 | [0. 0. 0. 0.] | [0. 0. 0. 0.]
+20 x 200 | converged | 8 | [0.735 0.92  0.18  0.325] | [0.92 0.95 0.77 0.  ]
+initial targets [1. 1. 1. 1.] max realised risk [1. 1. 1. 1.] beta [0.441417 0.406918 0.143283 0.      ]
+final targets [0.445594 0.461015 0.256323 0.      ] max realised risk [0.445594 0.461015 0.256323 0.      ] beta [0.99986  1.000152 1.000866 0.      ]
+Sized dense solver statuses: ['optimal', 'optimal_inaccurate']
+Sized dense solver events (counts): {('solver warning', 'Solution may be inaccurate. Try another solver, adjusting the solver settings, or solve with verbose=True for more information.'): 1361}
+Sized dense maximum equality_error 2.0266732736473614e-11
+Sized dense maximum box_violation 0.0
+Sized dense maximum stationarity_error 8.521030948258068e-05
+Sized dense maximum snap_change 2.0777139619204688e-07
+Sized dense raw risk excess: 1.2080578204454184e-10
+New dense cells wall time: 13.39 seconds
+```
+
+The four-period example stalls because its stand-alone risks remain below
+inactive targets, so raising those targets leaves the proxies unchanged.
+Here the risk constraints bind for all four initial proxies in some periods,
+and the unchanged undamped iteration converges in eight fits on three surviving
+proxies, with final binding fractions 0.92, 0.95 and 0.77; NNLS drops the fourth.
+Its distance to Durin is still 0.198070, with a net residual share of 0.396140,
+and the solver reports some `optimal_inaccurate` solutions, whose measured
+residuals are printed above rather than suppressed.
+
+
+#### Check the two published paths
+
+The reference below contains the final cumulative values copied from the figure's `f13-pnl-paths.json`, including residuals and the two Grinold–Easton portfolios. It is embedded so this notebook works offline. The source JSON SHA-256 is `91b750176b9263260aa13a85063dbf2c1f3b12bb561139e752bf4f9cc8f53544`.
+
+The check uses absolute tolerance $10^{-8}$ simulation P&L units and zero relative tolerance. It compares every component endpoint for every method and the book endpoint. It also checks that each method, including any residual, adds back to the book in every period. Neither check changes the reference. The examples may take a few minutes.
+
+```python
+reference = {'base': {'total': 519.0910938220723,
+          'methods': {'regression': {'fast A': 100.53242064658039,
+                                     'slow A': 70.38954858667016,
+                                     'fast B': 14.304523929024574,
+                                     'slow B': 5.152252732430301,
+                                     'residual': 328.7123479273673},
+                      'iterated': {'fast A': 152.764529210917,
+                                   'slow A': 112.63119504250166,
+                                   'fast B': 58.46371903282879,
+                                   'slow B': 9.128433518895262,
+                                   'residual': 186.10321701692942},
+                      'loo': {'fast A': 111.60697161328982,
+                              'slow A': 119.72681697759026,
+                              'fast B': 45.54721780588971,
+                              'slow B': 46.361535410303155,
+                              'residual': 195.84855201499892},
+                      'grinold_easton': {'fast A': 256.72848474852657,
+                                         'slow A': 366.92552784896986,
+                                         'fast B': 130.11725884186922,
+                                         'slow B': 152.89402503899424,
+                                         'spread cost': -241.89397508564036,
+                                         'position limit': -145.68022757064776},
+                      'durin': {'fast A': 175.06247412657459,
+                                'slow A': 179.2643826576884,
+                                'fast B': 101.85999505010044,
+                                'slow B': 62.904241987708474},
+                      'shapley_target': {'fast A': 177.48994085845976,
+                                         'slow A': 176.86366093064652,
+                                         'fast B': 98.66062755250604,
+                                         'slow B': 66.07686448045925},
+                      'shapley_gamma': {'fast A': 165.110443254377,
+                                        'slow A': 201.34140232216058,
+                                        'fast B': 84.36564359163518,
+                                        'slow B': 68.27360465389944}}},
+ 'spread_2': {'total': 104.32833661086099,
+              'methods': {'regression': {'fast A': 0.0,
+                                         'slow A': 0.0,
+                                         'fast B': 0.0,
+                                         'slow B': 0.0,
+                                         'residual': 104.32833661086099},
+                          'iterated': {'fast A': 0.0,
+                                       'slow A': 0.0,
+                                       'fast B': 0.0,
+                                       'slow B': 0.0,
+                                       'residual': 104.32833661086099},
+                          'loo': {'fast A': 76.94178438231884,
+                                  'slow A': 79.71850185927482,
+                                  'fast B': 83.2415101226865,
+                                  'slow B': 38.198069494507166,
+                                  'residual': -173.77152924792617},
+                          'grinold_easton': {'fast A': 584.582758851705,
+                                             'slow A': 1411.9782224503138,
+                                             'fast B': 427.665383299356,
+                                             'slow B': 414.98905688713205,
+                                             'spread cost': -2717.716466794506,
+                                             'position limit': -17.1706180831368},
+                          'durin': {'fast A': 39.74723533758032,
+                                    'slow A': 25.44001817571785,
+                                    'fast B': 27.503588408741983,
+                                    'slow B': 11.637494688821034},
+                          'shapley_target': {'fast A': 30.38494084386784,
+                                             'slow A': 30.230508340967734,
+                                             'fast B': 29.720064717153566,
+                                             'slow B': 13.992822708871934},
+                          'shapley_gamma': {'fast A': 31.427851827138475,
+                                            'slow A': 29.636409594471246,
+                                            'fast B': 30.21533987280228,
+                                            'slow B': 13.048735316449124}}}}
+
+# Endpoints agree to about 2e-10 relative across platforms (macOS, Linux).
+tolerance, relative = 1e-8, 1e-9
+for scenario, spread in [("base", 0.5), ("spread_2", 2.0)]:
+    desk = Desk(spread_rel=spread)
+    total, parts, iteration = compare(desk)
+    expected = reference[scenario]
+    book_endpoint = np.cumsum(total)[-1]
+    np.testing.assert_allclose(book_endpoint, expected["total"], atol=tolerance, rtol=relative)
+    print(f"{scenario}: book={book_endpoint:.12f}; "
+          f"iteration={iteration['status']} ({iteration['n_iter']} fits)")
+    largest_error = abs(book_endpoint - expected["total"])
+    for method, rows in expected["methods"].items():
+        endpoints = np.cumsum(parts[method], axis=1)[:, -1]
+        np.testing.assert_allclose(endpoints, list(rows.values()), atol=tolerance, rtol=relative)
+        np.testing.assert_allclose(parts[method].sum(0), total, atol=tolerance, rtol=relative)
+        largest_error = max(largest_error, np.max(np.abs(endpoints - list(rows.values()))))
+        print(f"  {method}: " + ", ".join(
+            f"{label}={value:.9f}" for label, value in zip(rows, endpoints)))
+    print(f"PASS: all component endpoints and period sums; max endpoint error={largest_error:.3g}")
+```
+
+```text
+base: book=519.091093822072; iteration=converged (10 fits)
+  regression: fast A=100.532420647, slow A=70.389548587, fast B=14.304523929, slow B=5.152252732, residual=328.712347927
+  iterated: fast A=152.764529211, slow A=112.631195043, fast B=58.463719033, slow B=9.128433519, residual=186.103217017
+  loo: fast A=111.606971613, slow A=119.726816978, fast B=45.547217806, slow B=46.361535410, residual=195.848552015
+  grinold_easton: fast A=256.728484749, slow A=366.925527849, fast B=130.117258842, slow B=152.894025039, spread cost=-241.893975086, position limit=-145.680227571
+  durin: fast A=175.062474127, slow A=179.264382658, fast B=101.859995050, slow B=62.904241988
+  shapley_target: fast A=177.489940858, slow A=176.863660931, fast B=98.660627553, slow B=66.076864480
+  shapley_gamma: fast A=165.110443254, slow A=201.341402322, fast B=84.365643592, slow B=68.273604654
+PASS: all component endpoints and period sums; max endpoint error=0
+```
+
+```text
+spread_2: book=104.328336610861; iteration=no_live_proxy (2 fits)
+  regression: fast A=0.000000000, slow A=0.000000000, fast B=0.000000000, slow B=0.000000000, residual=104.328336611
+  iterated: fast A=0.000000000, slow A=0.000000000, fast B=0.000000000, slow B=0.000000000, residual=104.328336611
+  loo: fast A=76.941784382, slow A=79.718501859, fast B=83.241510123, slow B=38.198069495, residual=-173.771529248
+  grinold_easton: fast A=584.582758852, slow A=1411.978222450, fast B=427.665383299, slow B=414.989056887, spread cost=-2717.716466795, position limit=-17.170618083
+  durin: fast A=39.747235338, slow A=25.440018176, fast B=27.503588409, slow B=11.637494689
+  shapley_target: fast A=30.384940844, slow A=30.230508341, fast B=29.720064717, slow B=13.992822709
+  shapley_gamma: fast A=31.427851827, slow A=29.636409594, fast B=30.215339873, slow B=13.048735316
+PASS: all component endpoints and period sums; max endpoint error=0
+```
+
+</details>
+
+<details>
+<summary>Approximate Shapley</summary>
+
+#### 5. Approximate Shapley
+
+A random order gives each signal its marginal contribution when it joins.
+The marginals telescope to the full value minus the empty value for every
+order; reversing each order gives an antithetic pair, as in
+[Rory Mitchell, Joshua Cooper, Eibe Frank and Geoffrey Holmes (2022),
+*Sampling Permutations for Shapley Value Estimation*, JMLR 23(43):1–46,
+section 2.4](https://jmlr.org/papers/v23/21-0439.html)
+(`mitchellSamplingPermutationsShapley2022`; no DOI listed). Paired KernelSHAP
+samples a subset and its complement, then fits the coalition values with
+the efficiency constraint imposed exactly. We sample subset size with
+probability proportional to $1/[s(K-s)]$, then uniformly within that size.
+This already samples in proportion to the Shapley kernel, so the regression
+uses equal weights, retaining duplicate observations.
+
+We use the existing base example (50 assets, 1,000 periods, seed 20261029)
+and both risk conventions. Before running, declare 200 draws with random
+seeds 0–199 and sampling sizes 4, 16 and 64. For permutation sampling the
+size counts independent orders (plus their reverses for the antithetic
+version); for KernelSHAP it counts independent subset/complement pairs.
+The table reports the number of **distinct coalition values**, including
+the empty and full coalitions, rather than treating these sampling sizes
+as equal costs. Every method starts with an empty cache.
+The Owen value groups signals before ordering them; it is a different
+allocation convention, not a sampling approximation of Shapley
+([Guillermo Owen, 1977](https://doi.org/10.1007/978-3-642-45494-3_7),
+`owenValuesGamesPriori1977`).
+
+The exact reference evaluates all 16 coalitions. The samplers replay this
+reference table to isolate sampling error without repeating backtests;
+their cache counts are how many distinct values they would request from a
+backtest oracle. Error is half the L1 distance between shares, normalised
+by the absolute full-minus-empty value, as in section 3.5; maximum error
+is in synthetic P&L units. Brackets give the 5th and 95th percentiles over
+all 200 draws. A rank-deficient KernelSHAP fit uses the least-squares solution with
+the last coefficient eliminated and is counted explicitly: efficiency alone does not
+identify its individual contributions.
+
+Methods: Javier Castro, Daniel Gómez and Juan Tejada (2009), *Polynomial
+calculation of the Shapley value based on sampling*, Computers & Operations
+Research 36, 1726–1730, [doi:10.1016/j.cor.2008.04.004](https://doi.org/10.1016/j.cor.2008.04.004),
+`castroPolynomialCalculationShapley2009`; Scott Lundberg and
+Su-In Lee (2017), *A Unified Approach to Interpreting Model Predictions*,
+NeurIPS 30, `lundbergUnifiedApproachInterpreting2017`; Ian Covert and Su-In Lee (2021), *Improving KernelSHAP: Practical
+Shapley Value Estimation Using Linear Regression*, AISTATS, PMLR 130,
+[3457–3465](https://proceedings.mlr.press/v130/covert21a.html),
+`covertImprovingKernelSHAPPractical2021`.
+
+
+```python
+class CoalitionCache:
+    def __init__(self, values):
+        self.values = values
+        self.cache = {}
+
+    def __call__(self, mask):
+        mask = int(mask)
+        if mask not in self.cache:
+            self.cache[mask] = float(self.values[mask])
+        return self.cache[mask]
+
+
+def sampled_orders(value, K, m, seed, antithetic=False):
+    rng = np.random.default_rng(seed)
+    phi = np.zeros(K)
+    delta = value((1 << K) - 1) - value(0)
+    for _ in range(m):
+        order = rng.permutation(K)
+        orders = (order, order[::-1]) if antithetic else (order,)
+        for sequence in orders:
+            mask, previous = 0, value(0)
+            marginal = np.zeros(K)
+            for k in sequence:
+                mask |= 1 << int(k)
+                current = value(mask)
+                marginal[k] = current - previous
+                previous = current
+            np.testing.assert_allclose(marginal.sum(), delta, atol=1e-10, rtol=0)
+            phi += marginal
+    return phi / (m * (2 if antithetic else 1)), K - 1
+
+
+def paired_kernel(value, K, m, seed):
+    rng = np.random.default_rng(seed)
+    full_mask = (1 << K) - 1
+    baseline, delta = value(0), value(full_mask) - value(0)
+    sizes = np.arange(1, K)
+    probability = 1 / (sizes * (K - sizes))
+    probability /= probability.sum()
+    rows, outcomes = [], []
+    for _ in range(m):
+        size = rng.choice(sizes, p=probability)
+        mask = sum(1 << int(k) for k in rng.choice(K, size, replace=False))
+        for subset in (mask, full_mask ^ mask):
+            z = ((subset >> np.arange(K)) & 1).astype(float)
+            # Substitute phi[-1] = delta - sum(phi[:-1]).
+            rows.append(z[:-1] - z[-1])
+            outcomes.append(value(subset) - baseline - z[-1] * delta)
+    coefficients, _, rank, _ = np.linalg.lstsq(rows, outcomes, rcond=None)
+    phi = np.r_[coefficients, delta - coefficients.sum()]
+    np.testing.assert_allclose(phi.sum(), delta, atol=1e-10, rtol=0)
+    return phi, rank
+```
+
+```python
+approx_start = perf_counter()
+approx_desk = Desk()
+approx_g, approx_r = simulate(approx_desk, 20261029)
+approx_K = len(approx_desk.ic)
+approx_full = solve(approx_desk, approx_g.sum(0)[None], sigma_target=np.array([1.0]))
+approx_G = coalition_signals(approx_g)
+approx_rows = []
+for convention in ("target", "gamma"):
+    options = (dict(sigma_target=np.full(len(approx_G), 1.0))
+               if convention == "target" else
+               dict(gamma_path=np.broadcast_to(approx_full.gamma,
+                    (len(approx_G), approx_desk.n_periods))))
+    solution = solve(approx_desk, approx_G, **options)
+    coalition_values = np.r_[0.0, pnl(approx_desk, solution, approx_r).sum(axis=1)]
+    exact = shapley(coalition_values[:, None], approx_K)[:, 0]
+    # Same endpoints as the base example above, without changing its reference.
+    np.testing.assert_allclose(exact,
+        list(reference["base"]["methods"]["shapley_" + convention].values()),
+        atol=1e-8, rtol=0)
+    scale = abs(coalition_values[-1] - coalition_values[0])
+    assert scale > 0
+    print("Game:", convention, "exact coalition cost:", len(coalition_values))
+    print("method       size  distinct median[5%,95%]  L1 median[5%,95%]  "
+          "max P&L error median[5%,95%]  rank deficient / 200")
+    for name in ("permutation", "antithetic", "kernel"):
+        for m in (4, 16, 64):
+            records = []
+            for seed in range(200):
+                value = CoalitionCache(coalition_values)
+                estimate, rank = (paired_kernel(value, approx_K, m, seed)
+                    if name == "kernel" else sampled_orders(
+                        value, approx_K, m, seed, antithetic=name == "antithetic"))
+                error = estimate - exact
+                records.append((len(value.cache), np.abs(error).sum() / (2 * scale),
+                                np.abs(error).max(), rank < approx_K - 1))
+            records = np.asarray(records)
+            quantiles = np.quantile(records[:, :3], [0.05, 0.5, 0.95], axis=0)
+            formatted = [f"{q[1]:.5g}[{q[0]:.5g},{q[2]:.5g}]"
+                         for q in quantiles.T]
+            rank_deficient = int(records[:, 3].sum())
+            print(f"{name:12} {m:4}  " + "  ".join(formatted) + f"  {rank_deficient}")
+            approx_rows.append(dict(game=convention, method=name, size=m,
+                                    quantiles=quantiles, rank_deficient=rank_deficient))
+approx_seconds = perf_counter() - approx_start
+print(f"Approximate Shapley cells: {approx_seconds:.3f} seconds")
+assert approx_seconds < 60, "New example exceeded its one-minute runtime budget"
+```
+
+```text
+Game: target exact coalition cost: 16
+method       size  distinct median[5%,95%]  L1 median[5%,95%]  max P&L error median[5%,95%]  rank deficient / 200
+permutation     4  11[8,13]  0.068289[0.025636,0.1181]  30.554[11.372,53.694]  0
+```
+
+```text
+permutation    16  16[14,16]  0.033629[0.012303,0.057565]  14.918[4.8057,28.319]  0
+```
+
+```text
+permutation    64  16[16,16]  0.016271[0.0051798,0.028589]  7.1877[2.3216,12.693]  0
+antithetic      4  14[12,16]  0.036291[0.0088785,0.06336]  14.358[3.6177,24.751]  0
+antithetic     16  16[16,16]  0.016098[0.0067998,0.029547]  7.2572[2.9158,13.237]  0
+```
+
+```text
+antithetic     64  16[16,16]  0.0076355[0.0027486,0.015202]  3.609[1.2402,6.823]  0
+kernel          4  8[6,10]  0.085497[0.024879,0.38104]  33.081[10.111,193.89]  47
+kernel         16  14[12,16]  0.024768[0.0080101,0.057309]  10.384[3.8082,28.369]  0
+```
+
+```text
+kernel         64  16[16,16]  0.011415[0.0046107,0.021492]  5.1129[2.076,10.427]  0
+Game: gamma exact coalition cost: 16
+method       size  distinct median[5%,95%]  L1 median[5%,95%]  max P&L error median[5%,95%]  rank deficient / 200
+permutation     4  11[8,13]  0.052043[0.022456,0.088016]  23.847[9.8852,39.917]  0
+permutation    16  16[14,16]  0.024759[0.0097704,0.041913]  10.937[4.0022,19.782]  0
+```
+
+```text
+permutation    64  16[16,16]  0.01157[0.0046955,0.022027]  5.2706[2.1664,9.9238]  0
+antithetic      4  14[12,16]  0.047716[0.010153,0.08369]  17.414[4.7544,32.408]  0
+antithetic     16  16[16,16]  0.02093[0.0082149,0.039237]  9.3671[3.6392,16.928]  0
+```
+
+```text
+antithetic     64  16[16,16]  0.010236[0.0035436,0.018889]  4.6838[1.4438,8.3166]  0
+kernel          4  8[6,10]  0.11004[0.029969,0.42938]  42.191[13.485,206.82]  47
+kernel         16  14[12,16]  0.030572[0.010941,0.074262]  13.524[5.1556,33.689]  0
+```
+
+```text
+kernel         64  16[16,16]  0.014616[0.0062612,0.028499]  6.4375[2.5857,12.803]  0
+Approximate Shapley cells: 5.683 seconds
+```
+
+For four signals, sampling quickly visits most of the 16 coalitions.
+Once all values are cached, exact enumeration removes sampling error at
+no further backtest cost. Increasing the number of random draws after
+that point still reduces Monte Carlo error, but saves no backtests here.
+The comparison at larger signal counts is therefore needed before choosing
+a sampling method for a larger portfolio.
+
+
+</details>

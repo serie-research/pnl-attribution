@@ -1,0 +1,14 @@
+{
+  "synthetic": true,
+  "source": "Author-chosen two-segment inputs; identities: Brinson & Fachler (1985), eqs. 3\u20137, pp. 75\u201376; Brinson, Hood & Beebower (1986), Tables I\u2013III, pp. 40\u201341.",
+  "portfolioWeight": 60,
+  "benchmarkWeight": 40,
+  "portfolioReturnsBp": [
+    800,
+    100
+  ],
+  "benchmarkReturnsBp": [
+    600,
+    200
+  ]
+}

@@ -1,0 +1,100 @@
+{
+  "source": "Synthetic example computed by web/tools/data/i4-four-games.py (seeded, parameters declared there); the numbers below are its output, rounded. Section 4 of the attribution page (4.1, 4.2).",
+  "venn": {
+    "id": "41-shared-information-is-not-a-regression-coefficient",
+    "sec": "4.1",
+    "outcome": "P&L",
+    "one": "volatility",
+    "two": "spread",
+    "shared": "shared\ninformation",
+    "rule": "A redundant indicator gets credit when it enters before its substitute."
+  },
+  "title": "Four games on the same data",
+  "example": "Synthetic example: a linear model predicts a desk's daily P&L from volatility and spread, two indicators that move together.",
+  "id": "42-the-game-comes-before-the-allocation",
+  "sec": "4.2",
+  "axis": "Bars: each share as a percentage of *v*(*N*) − *v*(∅). The two shares add to 100%.",
+  "note": "The same data answer four questions. The three global games have different units and, after rounding, the same 68%/32% split. They would agree exactly if the model were the true conditional mean, the loss squared error and the indicators jointly Gaussian (§4.2); here the indicators are lognormal and the P&L slightly concave, so the values of one indicator alone differ a little. The local game explains one day, and its split is different.",
+  "axisRange": [
+    -0.6,
+    1.6
+  ],
+  "games": [
+    {
+      "key": "r2",
+      "title": "Refitted *R*^{2}",
+      "formula": "*v*(*S*) = *R*^{2} of the regression of *Y* on *X_{S}*",
+      "question": "How much of the day-to-day variation of the P&L can a regression on these indicators fit?",
+      "unit": "Unit: fraction of the P&L variance.",
+      "shares": [
+        {
+          "value": 0.683,
+          "text": "0.47 · 68%"
+        },
+        {
+          "value": 0.317,
+          "text": "0.22 · 32%"
+        }
+      ],
+      "outcome": "P&L variance\nfitted",
+      "detail": "Each subset gets its own regression. *v*({volatility}) = 0.66, *v*({spread}) = 0.40, *v*(both) = 0.69 and *v*(∅) = 0. The shares, 0.47 and 0.22, add to 0.69. Volatility and spread have correlation 0.6. *R*^{2} cannot fall when a predictor is added, so no share is negative, even for a predictor that contains only noise."
+    },
+    {
+      "key": "cv",
+      "title": "Conditional variance",
+      "formula": "*v*(*S*) = Var(E[*ŷ*(*X*) | *X_{S}*])",
+      "question": "If we know only these indicators, how much does the model's predicted P&L vary?",
+      "unit": "Unit: variance of the predicted P&L, in k€².",
+      "shares": [
+        {
+          "value": 0.682,
+          "text": "243 k€² · 68%"
+        },
+        {
+          "value": 0.318,
+          "text": "113 k€² · 32%"
+        }
+      ],
+      "outcome": "variance of the\npredicted P&L",
+      "detail": "The fitted model stays fixed. *v*({volatility}) = 338 k€², *v*({spread}) = 209 k€², *v*(both) = 356 k€², the variance of the prediction itself, and *v*(∅) = 0. The shares are 243 k€² and 113 k€²."
+    },
+    {
+      "key": "shap",
+      "title": "Local conditional SHAP",
+      "formula": "*v*(*S*) = E[*ŷ*(*X*) | *X_{S}* = *x_{S}*] for one day *x*",
+      "question": "On one day, how far does each indicator move the predicted P&L from its average?",
+      "unit": "Unit: the model's output, here the predicted P&L of that day, in k€. Signed. The day: volatility 35%, spread 3 bp.",
+      "shares": [
+        {
+          "value": 1.52,
+          "text": "+28.3 k€ · 152%"
+        },
+        {
+          "value": -0.52,
+          "text": "−9.7 k€ · −52%"
+        }
+      ],
+      "outcome": "predicted P&L\nof one day",
+      "detail": "The day has a volatility of 35% and a spread of 3 bp. *v*(∅) = 40.8 k€, the average prediction. Given only the volatility, 68.0 k€; only the spread, 30.0 k€; both, 59.4 k€, the prediction for that day. Volatility adds 28.3 k€. The spread removes 9.7 k€, because 3 bp is narrow for this volatility: the usual spread is 5.9 bp. The shares add to 59.4 − 40.8 = 18.6 k€."
+    },
+    {
+      "key": "sage",
+      "title": "SAGE",
+      "formula": "*v*(*S*) = E[(*Y* − E *ŷ*(*X*))^{2}] − E[(*Y* − E[*ŷ*(*X*) | *X_{S}*])^{2}]",
+      "question": "How much smaller is the model's prediction error when it can use these indicators?",
+      "unit": "Unit: reduction in mean squared error, in k€². The loss is squared error.",
+      "shares": [
+        {
+          "value": 0.681,
+          "text": "243 k€² · 68%"
+        },
+        {
+          "value": 0.319,
+          "text": "113 k€² · 32%"
+        }
+      ],
+      "outcome": "reduction in\nsquared error",
+      "detail": "The fitted model stays fixed and averages over the missing indicators, given the known ones. With no indicator the mean squared error is 514 k€², the variance of the P&L. Volatility alone reduces it by 343 k€², spread alone by 214 k€², both by 356 k€². The shares are 243 k€² and 113 k€². They depend on the loss."
+    }
+  ]
+}

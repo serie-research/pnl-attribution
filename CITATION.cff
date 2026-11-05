@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this work, please cite it as below."
+title: "Explaining a trading P&L: what finance knows about performance attribution, and what is open"
+authors:
+  - family-names: "Sérié"
+    given-names: "Emmanuel"
+date-released: 2026-11-05
+url: "https://attribution.serie-research.dev/attribution/"
+repository-code: "https://github.com/serie-research/pnl-attribution"
+license: MIT
+type: software

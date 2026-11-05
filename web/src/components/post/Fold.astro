@@ -1,0 +1,23 @@
+---
+// A folded part of an exercise (hint, checkpoint, solution): a full-width row of the exercise box.
+interface Props {
+  kind: "hint" | "checkpoint" | "solution";
+  label: string;
+  detail?: string;
+}
+const { kind, label, detail } = Astro.props as Props;
+const icons = {
+  hint: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.4 1 1.1 1 1.8V16h5v-.3c0-.7.4-1.4 1-1.8A6 6 0 0 0 12 3z",
+  checkpoint: "M5 21V4M5 4h12l-2.5 4L17 12H5",
+  solution: "M8 7l-5 5 5 5M16 7l5 5-5 5",
+};
+---
+<details class={`exercise__fold exercise__fold--${kind}`}>
+  <summary>
+    <svg class="exercise__icon" viewBox="0 0 24 24" aria-hidden="true"><path d={icons[kind]} /></svg>
+    <span class="exercise__fold-label">{label}</span>
+    {detail && <span class="exercise__fold-detail">{detail}</span>}
+    <svg class="exercise__chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>
+  </summary>
+  <div class="exercise__fold-content"><slot /></div>
+</details>

@@ -1,0 +1,39 @@
+{
+  "name": "pnl-attribution",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "(MIT AND CC-BY-4.0)",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "python3 tools/publish-code.py && astro build && python3 tools/publish-code.py --check dist",
+    "preview": "astro preview --host 127.0.0.1",
+    "check:render": "node tools/check-render.mjs",
+    "check:present": "node tools/check-present.mjs",
+    "check:present-screens": "node tools/check-present-screens.mjs",
+    "export:present": "node tools/export-present-pdf.mjs",
+    "check:slides": "node tools/check-slides.mjs",
+    "export:slides": "node tools/export-slides-pdf.mjs",
+    "test": "node --test tools/tests/*.test.mjs",
+    "check:prose": "python3 tools/prose-lint.py",
+    "check:readability": "python3 tools/prose-lint.py --readability"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@astrojs/mdx": "3.1.9",
+    "astro": "4.16.19",
+    "d3": "7.9.0",
+    "katex": "0.16.47",
+    "qrcode": "1.5.4",
+    "rehype-citation": "2.3.2",
+    "rehype-katex": "7.0.1",
+    "rehype-slug": "6.0.0",
+    "remark-directive": "3.0.1",
+    "remark-math": "6.0.0"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

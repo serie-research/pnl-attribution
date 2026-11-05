@@ -1,0 +1,57 @@
+\documentclass[tikz,dvisvgm,border=1pt]{standalone}
+\input{common}
+% Segment A of the example in section 2.1: b_A = 0.4, w_A = 0.6,
+% r_A^B = 600 bp, r_A = 800 bp, R_B = 360 bp. Areas are weight x return (bp).
+\begin{document}
+\ifnarrow
+  \def\xu{300}\def\yu{0.22}\def\notew{262pt}
+\else
+  \def\xu{420}\def\yu{0.27}\def\notew{180pt}
+\fi
+\begin{tikzpicture}[x=\xu pt, y=\yu pt]
+  % Areas.
+  \fill[surface] (0,0) rectangle (0.4,600);
+  \fill[info!35] (0.4,0) rectangle (0.6,360);
+  \fill[info!75] (0.4,360) rectangle (0.6,600);
+  \fill[primary!70] (0,600) rectangle (0.4,800);
+  \fill[success!70] (0.4,600) rectangle (0.6,800);
+  \draw[white, line width=1.2pt] (0.4,0) -- (0.4,800) (0,600) -- (0.6,600);
+  \draw[ink, dashed] (0,360) -- (0.6,360);
+  \draw[ink] (0,800) rectangle (0.6,0);
+  % Labels inside the areas.
+  \node[align=center] at (0.2,180) {Benchmark in A\\[1pt]$b_A r_A^B=240$};
+  \node[align=center, white] at (0.2,700) {\textbf{Selection}\\$S_A=80$};
+  \node[align=center, white] at (0.5,700) {\textbf{Interaction}\\$I_A=40$};
+  \node[align=center, white] at (0.5,480) {\textbf{Allocation}\\$A_A=48$};
+  \node[align=center, small] at (0.5,180) {$(w_A{-}b_A)R_B$\\$=72$};
+  % Axes.
+  \foreach \x/\l in {0/0, 0.4/{$b_A=0.4$}, 0.6/{$w_A=0.6$}}
+    \draw (\x,0) -- ++(0,-4pt) node[below, small] {\l};
+  \foreach \y/\l in {0/0, 360/{$R_B=360$}, 600/{$r_A^B=600$}, 800/{$r_A=800$}}
+    \draw (0,\y) -- ++(-4pt,0) node[left, small] {\l};
+  \node[small, text=muted] at ($(0.3,0)+(0,-26pt)$) {weight in segment A};
+  \node[small, text=muted, above, rotate=90] at ($(0,400)+(-50pt,0)$) {return (bp)};
+  % Reading notes.
+  \ifnarrow
+    \node[below right, text width=\notew, align=left, inner sep=0pt] (n) at ($(0,0)+(-52pt,-40pt)$) {
+      \textbf{Outer rectangle:} the portfolio in A, $w_A r_A=480$.\\[3pt]
+      \textbf{Added area:} $48+72+80+40=240=w_A r_A-b_A r_A^B$.\\[3pt]
+      \textbf{Allocation 1985} is the dark strip above $R_B$;
+      the 1986 convention takes the whole strip,
+      $(w_A{-}b_A)r_A^B=120$. The pale part, $(w_i{-}b_i)R_B$,
+      sums to zero over segments.};
+  \else
+    \node[right, text width=\notew, align=left, inner sep=0pt] at ($(0.6,400)+(22pt,0)$) {
+      \textbf{Outer rectangle:} the portfolio in A,\\
+      $w_A r_A=0.6\times800=480$.\\[5pt]
+      \textbf{Added area:}\\
+      $48+72+80+40=240$\\
+      $=w_A r_A-b_A r_A^B$.\\[5pt]
+      \textbf{Allocation 1985} is the dark strip above $R_B$.
+      The 1986 convention takes the whole strip,
+      $(w_A{-}b_A)r_A^B=120$. The pale part, $(w_i{-}b_i)R_B$,
+      sums to zero over segments.};
+  \fi
+  \drawcard
+\end{tikzpicture}
+\end{document}
